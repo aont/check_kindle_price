@@ -8,6 +8,7 @@ import codecs
 import time
 import datetime
 import re
+import traceback
 
 import requests
 import psycopg2
@@ -30,7 +31,7 @@ class LINE(object):
                 line_notify = self.sess.post(self.line_notify_api, data = {'message': message}, headers = self.headers)
                 break
             except requests.exceptions.ConnectionError as e:
-                sys.stderr.write(e.message)
+                sys.stderr.write(traceback.format_exc())
                 continue
 
 AMAZON='https://www.amazon.co.jp/dp/'
@@ -83,7 +84,8 @@ def check_amazon(sess, dp):
             
         
 if __name__ == '__main__':
-    sess = requests.session()
+    line_sess = requests.session()
+    amazon_sess = requests.session()
     
     
     pg_url = os.environ['DATABASE_URL']
@@ -92,7 +94,7 @@ if __name__ == '__main__':
     pg_cur = pg_conn.cursor()
 
     line_notify_token = os.environ['LINE_TOKEN']
-    line = LINE(sess, line_notify_token)
+    line = LINE(line_sess, line_notify_token)
 
     dp_ary = ['B0111OGVTM', 'B00DLT0B9M']
     for dp in dp_ary:
@@ -106,11 +108,11 @@ if __name__ == '__main__':
 
         datetime_now = datetime.datetime.now()
         # print "datetime: %s" % datetime_now
-        new_state = check_amazon(sess, dp)
+        new_state = check_amazon(amazon_sess, dp)
         new_net_price = new_state[0] - new_state[1]
 
         if new_net_price != prev_net_price:
-            line.notify("%s%s %s <- %s" % (AMAZON, dp, new_net_price, prev_net_price))
+            line.notify("%s%s %s <- %s (%s)" % (AMAZON, dp, new_net_price, prev_net_price, datetime_now))
 
         # if new_net_price != prev_net_price:
         #     print("%s%s %s <- %s (%s)" % (AMAZON, dp, new_net_price, prev_net_price, datetime_now))
