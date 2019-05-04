@@ -29,9 +29,18 @@ class LINE(object):
         for t in xrange(5):
             try:
                 line_notify = self.sess.post(self.line_notify_api, data = {'message': message}, headers = self.headers)
+                if requests.codes.ok != line_notify.status_code:
+                    sys.stderr.write("[info] line status_code = %s\n" % line_notify.status_code)
+                    sys.stderr.write("[info] wait for 5s and retry\n")
+                    sys.stderr.flush()
+                    time.sleep(5)
+                    continue
+
                 break
             except requests.exceptions.ConnectionError as e:
+                sys.stderr.write("[warn] LINE ConnectionError occured. retrying...\n")
                 sys.stderr.write(traceback.format_exc())
+                sys.stderr.flush()
                 continue
 
 AMAZON='https://www.amazon.co.jp/dp/'
@@ -50,14 +59,46 @@ def check_amazon(sess, dp):
 
     product_uri = AMAZON + dp
 
-    result = sess.get(product_uri, headers = headers)
-    product_lxml = lxml.html.fromstring(result.text)
+    try_num = 0
+    max_try = 5
+    while True:
+        
+        result = sess.get(product_uri, headers = headers)
+        # result = sess.get(product_uri)
+        if requests.codes.unavailable == result.status_code:
+            sys.stderr.write("[info] amazon temporarily unavailable\n")
+            sys.stderr.write("[info] wait for 5s and retry\n")
+            sys.stderr.flush()
+            time.sleep(5)
+            continue
 
-    price_td_ary = product_lxml.cssselect('#buybox > div > table > tr.kindle-price> td.a-color-price.a-size-medium.a-align-bottom')
-    if len(price_td_ary) != 1:
-        codecs.getwriter('utf_8')(sys.stdout).write(result.text)
-        # print result.text
-        raise
+        if requests.codes.ok != result.status_code:
+            sys.stderr.write("[info] amazon status_code = %s\n" % result.status_code)
+            sys.stderr.write("[info] wait for 5s and retry\n")
+            sys.stderr.flush()
+            time.sleep(5)
+            continue
+        
+        
+        
+        product_lxml = lxml.html.fromstring(result.text)
+        price_td_ary = product_lxml.cssselect('#buybox > div > table > tr.kindle-price> td.a-color-price.a-size-medium.a-align-bottom')
+
+
+        if len(price_td_ary) != 1:
+            sys.stderr.write("[warn] amazon html format error. retrying...\n")
+            sys.stderr.flush()
+            # sys.stdout.write(result.content)
+            # codecs.getwriter('utf_8')(sys.stdout).write(result.text)
+            # print result.text
+            try_num += 1
+            if try_num == max_try:
+                raise
+            else:
+                continue
+        else:
+            break
+        
     price_td = price_td_ary[0]
     price_innerhtml = lxml.etree.tostring(price_td)
     # print price_innerhtml
@@ -87,19 +128,26 @@ if __name__ == '__main__':
     line_sess = requests.session()
     amazon_sess = requests.session()
     
-    
     pg_url = os.environ['DATABASE_URL']
+    table_name = 'amazon_price'
     pg_conn = psycopg2.connect(pg_url)
-    # pg_cur = pg_conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
     pg_cur = pg_conn.cursor()
 
     line_notify_token = os.environ['LINE_TOKEN']
     line = LINE(line_sess, line_notify_token)
 
-    dp_ary = ['B0111OGVTM', 'B00DLT0B9M']
+
+    pg_result = pg_cur.execute("select 1 from pg_tables where schemaname='public' and tablename=%s ;", [table_name])
+    pg_result = pg_cur.fetchone()
+    if pg_result is None:
+        pg_cur.execute("create table %s (dp text, price integer, point integer, date timestamp);" % (table_name))
+    elif 1 != pg_result[0] :
+        raise
+        
+    dp_ary = os.environ['AMAZON_GP_ARRAY'].split(',')
     for dp in dp_ary:
         
-        pg_cur.execute('select price - point from amazon_price where dp=%s order by date desc;', [dp])
+        pg_cur.execute('select price - point from %s where dp=%%s order by date desc;' % table_name, [dp])
         pg_result = pg_cur.fetchone()
         if pg_result is None:
             prev_net_price = -1
@@ -107,24 +155,13 @@ if __name__ == '__main__':
             prev_net_price = pg_result[0]
 
         datetime_now = datetime.datetime.now()
-        # print "datetime: %s" % datetime_now
         new_state = check_amazon(amazon_sess, dp)
         new_net_price = new_state[0] - new_state[1]
 
         if new_net_price != prev_net_price:
             line.notify("%s%s %s <- %s (%s)" % (AMAZON, dp, new_net_price, prev_net_price, datetime_now))
 
-        # if new_net_price != prev_net_price:
-        #     print("%s%s %s <- %s (%s)" % (AMAZON, dp, new_net_price, prev_net_price, datetime_now))
-        
-        pg_cur.execute('insert into amazon_price VALUES (%s, %s, %s, %s);', [dp, new_state[0], new_state[1], datetime_now])
-        # pg_cur.execute('update amazon_price set price = 1555, point = 0, date = %s where dp = %s;', [datetime.datetime.now(), dp])
-        
-        
-        # for row in pg_cur:
-        #     print row
-
-        # time.sleep(10)
+        pg_cur.execute('insert into %s VALUES (%%s, %%s, %%s, %%s);' % table_name, [dp, new_state[0], new_state[1], datetime_now])
         
     pg_conn.commit()
     
