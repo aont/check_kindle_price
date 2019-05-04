@@ -109,11 +109,11 @@ if __name__ == '__main__':
         new_state = check_amazon(sess, dp)
         new_net_price = new_state[0] - new_state[1]
 
-        # if new_net_price != prev_net_price:
-        #     line.notify("%s%s %s <- %s" % (AMAZON, dp, new_net_price, prev_net_price))
-
         if new_net_price != prev_net_price:
-            print("%s%s %s <- %s (%s)" % (AMAZON, dp, new_net_price, prev_net_price, datetime_now))
+            line.notify("%s%s %s <- %s" % (AMAZON, dp, new_net_price, prev_net_price))
+
+        # if new_net_price != prev_net_price:
+        #     print("%s%s %s <- %s (%s)" % (AMAZON, dp, new_net_price, prev_net_price, datetime_now))
         
         pg_cur.execute('insert into amazon_price VALUES (%s, %s, %s, %s);', [dp, new_state[0], new_state[1], datetime_now])
         # pg_cur.execute('update amazon_price set price = 1555, point = 0, date = %s where dp = %s;', [datetime.datetime.now(), dp])
