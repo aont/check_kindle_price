@@ -26,6 +26,8 @@ class LINE(object):
         self.headers = {'Authorization': 'Bearer ' + line_notify_token}
 
     def notify(self, message):
+        # print message
+        # return
         for t in xrange(5):
             try:
                 line_notify = self.sess.post(self.line_notify_api, data = {'message': message}, headers = self.headers)
@@ -207,7 +209,7 @@ if __name__ == '__main__':
         new_net_price = new_state[0] - new_state[1]
 
         if new_net_price != prev_net_price:
-            line.notify("%s%s %s <- %s (%s)" % (AMAZON_DP, dp, new_net_price, prev_net_price, datetime_now))
+            line.notify("%s%s %s <- %s (%s)" % (AMAZON_DP, dp, new_net_price, prev_net_price, datetime_now.strftime("%Y/%m/%d %H:%M:%S")))
 
         pg_cur.execute('insert into %s VALUES (%%s, %%s, %%s, %%s);' % table_name, [dp, new_state[0], new_state[1], datetime_now])
         
