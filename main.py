@@ -32,7 +32,7 @@ class LINE(object):
                 if requests.codes.ok != line_notify.status_code:
                     sys.stderr.write("[info] line status_code = %s\n" % line_notify.status_code)
                     sys.stderr.write("[info] wait for 5s and retry\n")
-                    sys.stderr.flush()
+                    # sys.stderr.flush()
                     time.sleep(5)
                     continue
 
@@ -40,42 +40,88 @@ class LINE(object):
             except requests.exceptions.ConnectionError as e:
                 sys.stderr.write("[warn] LINE ConnectionError occured. retrying...\n")
                 sys.stderr.write(traceback.format_exc())
-                sys.stderr.flush()
+                # sys.stderr.flush()
                 continue
 
-AMAZON='https://www.amazon.co.jp/dp/'
 
+AMAZON_CO_JP='https://www.amazon.co.jp/'
+amazon_headers = {
+    'authority': 'www.amazon.co.jp',
+    'upgrade-insecure-requests': '1',
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.103 Safari/537.36',
+    'dnt': '1',
+    'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3',
+    'accept-encoding': 'gzip, deflate, br',
+    'accept-language': 'ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7',
+}
+
+def get_wish_list(sess, list_id):
+
+    try_num = 0
+    max_try = 5
+    while True:
+        result = sess.get(AMAZON_CO_JP + 'hz/wishlist/ls/' + list_id, headers = amazon_headers)
+        if requests.codes.ok == result.status_code:
+            break
+        else:
+            sys.stderr.write("[info] amazon status_code = %s\n" % result.status_code)
+            sys.stderr.write("[info] wait for 5s and retry\n")
+            # sys.stderr.flush()
+            try_num += 1
+            if try_num == max_try:
+                raise
+            time.sleep(5)
+            continue
+    
+    product_lxml = lxml.html.fromstring(result.text)
+
+    li_ary = product_lxml.cssselect('#g-items > li')
+    if len(li_ary) == 0:
+        raise
+
+    dp_ary = []
+    dp_pattern = re.compile(r'^/dp/([^d]+)/')
+    for li in li_ary:
+        data_itemid = li.get("data-itemid")
+        # sys.stderr.write("[Info] data-itemid: %s \n" % data_itemid)
+        itemname_elem = li.get_element_by_id('itemName_%s' % data_itemid)
+        # item_title = itemname_elem.get('title')
+        item_href = itemname_elem.get('href')
+        # item_html = itemname_elem.text
+        # sys.stdout.write("%s %s %s\n" % (item_title, item_href, item_html))
+        dp_match = dp_pattern.match(item_href)
+        if dp_match is None:
+            raise
+        # sys.stdout.write("dpid %s\n" % dp_match.group(1))
+
+        dp_id = dp_match.group(1)
+        dp_ary.append(dp_id)
+    
+    return dp_ary
+
+
+AMAZON_DP= AMAZON_CO_JP  + 'dp/'
 def check_amazon(sess, dp):
-    headers = {
-        'authority': 'www.amazon.co.jp',
-        'upgrade-insecure-requests': '1',
-        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.103 Safari/537.36',
-        'dnt': '1',
-        'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3',
-        'accept-encoding': 'gzip, deflate, br',
-        'accept-language': 'ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7',
-    }
 
-
-    product_uri = AMAZON + dp
+    product_uri = AMAZON_DP + dp
 
     try_num = 0
     max_try = 5
     while True:
         
-        result = sess.get(product_uri, headers = headers)
+        result = sess.get(product_uri, headers = amazon_headers)
         # result = sess.get(product_uri)
         if requests.codes.unavailable == result.status_code:
             sys.stderr.write("[info] amazon temporarily unavailable\n")
             sys.stderr.write("[info] wait for 5s and retry\n")
-            sys.stderr.flush()
+            # sys.stderr.flush()
             time.sleep(5)
             continue
 
         if requests.codes.ok != result.status_code:
             sys.stderr.write("[info] amazon status_code = %s\n" % result.status_code)
             sys.stderr.write("[info] wait for 5s and retry\n")
-            sys.stderr.flush()
+            # sys.stderr.flush()
             time.sleep(5)
             continue
         
@@ -87,7 +133,7 @@ def check_amazon(sess, dp):
 
         if len(price_td_ary) != 1:
             sys.stderr.write("[warn] amazon html format error. retrying...\n")
-            sys.stderr.flush()
+            # sys.stderr.flush()
             # sys.stdout.write(result.content)
             # codecs.getwriter('utf_8')(sys.stdout).write(result.text)
             # print result.text
@@ -144,7 +190,9 @@ if __name__ == '__main__':
     elif 1 != pg_result[0] :
         raise
         
-    dp_ary = os.environ['AMAZON_GP_ARRAY'].split(',')
+    # dp_ary = os.environ['AMAZON_GP_ARRAY'].split(',')
+    list_id = os.environ['AMAZON_WISH_LIST_ID']
+    dp_ary = get_wish_list(amazon_sess, list_id)
     for dp in dp_ary:
         
         pg_cur.execute('select price - point from %s where dp=%%s order by date desc;' % table_name, [dp])
@@ -159,7 +207,7 @@ if __name__ == '__main__':
         new_net_price = new_state[0] - new_state[1]
 
         if new_net_price != prev_net_price:
-            line.notify("%s%s %s <- %s (%s)" % (AMAZON, dp, new_net_price, prev_net_price, datetime_now))
+            line.notify("%s%s %s <- %s (%s)" % (AMAZON_DP, dp, new_net_price, prev_net_price, datetime_now))
 
         pg_cur.execute('insert into %s VALUES (%%s, %%s, %%s, %%s);' % table_name, [dp, new_state[0], new_state[1], datetime_now])
         
