@@ -239,5 +239,5 @@ def amazon_test():
     sys.stdout.write("%s %s\n" % (new_state[0], new_state[1]) )
 
 if __name__ == u'__main__':
-    amazon_test()
-    # main()
+    # amazon_test()
+    main()
