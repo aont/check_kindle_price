@@ -204,6 +204,8 @@ if __name__ == u'__main__':
         else:
             prev_net_price = pg_result[0]
 
+            pg_cur.execute(u'delete from %s where dp=%%s;' % table_name, [dp])
+
         datetime_now = datetime.datetime.now()
         new_state = check_amazon(amazon_sess, dp)
         new_net_price = new_state[0] - new_state[1]
@@ -211,7 +213,9 @@ if __name__ == u'__main__':
         if new_net_price != prev_net_price:
             line.notify(u"%s %s%s %s <- %s (%s)" % (item_title, AMAZON_DP, dp, new_net_price, prev_net_price, datetime_now.strftime(u"%Y/%m/%d %H:%M:%S")))
 
+
         pg_cur.execute(u'insert into %s VALUES (%%s, %%s, %%s, %%s);' % table_name, [dp, new_state[0], new_state[1], datetime_now])
+
         
     pg_conn.commit()
     
