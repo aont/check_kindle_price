@@ -167,11 +167,14 @@ def check_amazon(sess, dp):
             point_num = int(point_match_obj.group(1).replace(u',',u''))
             # print "%s pt" % point_num
 
-    upsell_button_announce = product_lxml.get_element_by_id(u'upsell-button-announce')
-    if upsell_button_announce is not None:
+    try:
+        upsell_button_announce = product_lxml.get_element_by_id(u'upsell-button-announce')
+        # if upsell_button_announce is not None:
         sys.stderr.write("[Info] unlimited!\n")
         price_num = - price_num
         point_num = - point_num
+    except KeyError:
+        pass
 
     return (price_num, point_num)
 
@@ -230,11 +233,11 @@ def main():
 
 def amazon_test():
     amazon_sess = requests.session()
-    dp = u"B0192CTNQI"
-    # dp = u'B017NIF84E'
+    # dp = u"B0192CTNQI"
+    dp = u'B017NIF84E'
     new_state = check_amazon(amazon_sess, dp)
     sys.stdout.write("%s %s\n" % (new_state[0], new_state[1]) )
 
 if __name__ == u'__main__':
-    # amazon_test()
-    main()
+    amazon_test()
+    # main()
