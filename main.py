@@ -128,8 +128,7 @@ def check_amazon(sess, dp):
             continue
         
         product_lxml = lxml.html.fromstring(result.text)
-        price_td_ary = product_lxml.cssselect(u'#buybox > div > table > tr.kindle-price> td.a-color-price.a-size-medium.a-align-bottom')
-
+        price_td_ary = product_lxml.cssselect(u'div > table > tr.kindle-price> td.a-color-price.a-size-medium.a-align-bottom')
 
         if len(price_td_ary) != 1:
             sys.stderr.write(u"[warn] amazon html format error. retrying...\n")
@@ -167,10 +166,16 @@ def check_amazon(sess, dp):
         if point_match_obj is not None:
             point_num = int(point_match_obj.group(1).replace(u',',u''))
             # print "%s pt" % point_num
+
+    upsell_button_announce = product_lxml.get_element_by_id(u'upsell-button-announce')
+    if upsell_button_announce is not None:
+        sys.stderr.write("[Info] unlimited!\n")
+        price_num = - price_num
+        point_num = - point_num
+
     return (price_num, point_num)
-            
-        
-if __name__ == u'__main__':
+
+def main():
     line_sess = requests.session()
     amazon_sess = requests.session()
     
@@ -222,5 +227,14 @@ if __name__ == u'__main__':
     pg_cur.close()
     pg_conn.close()
 
-    
-    
+
+def amazon_test():
+    amazon_sess = requests.session()
+    dp = u"B0192CTNQI"
+    # dp = u'B017NIF84E'
+    new_state = check_amazon(amazon_sess, dp)
+    sys.stdout.write("%s %s\n" % (new_state[0], new_state[1]) )
+
+if __name__ == u'__main__':
+    # amazon_test()
+    main()
