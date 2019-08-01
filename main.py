@@ -58,11 +58,28 @@ amazon_headers = {
 }
 
 def get_wish_list(sess, list_id):
+    item_ary = []
+    lastEvaluatedKey = None
+    while True:
+        lastEvaluatedKey = get_wish_list_page(sess, list_id, item_ary, lastEvaluatedKey)
+        if lastEvaluatedKey is None:
+            break
+        else:
+            sys.stderr.write(u"[info] lastEvaluatedKey: %s\n" % lastEvaluatedKey)
+        
+    sys.stderr.write(u"[info] get_wish_list done\n")
+    return item_ary
+
+def get_wish_list_page(sess, list_id, item_ary, lastEvaluatedKey = None):
+
+    url = AMAZON_CO_JP + u'hz/wishlist/ls/' + list_id
+    if lastEvaluatedKey is not None:
+        url += "?lek=" + lastEvaluatedKey
 
     try_num = 0
     max_try = 5
     while True:
-        result = sess.get(AMAZON_CO_JP + u'hz/wishlist/ls/' + list_id, headers = amazon_headers)
+        result = sess.get(url, headers = amazon_headers)
         if requests.codes.ok == result.status_code:
             break
         else:
@@ -71,7 +88,8 @@ def get_wish_list(sess, list_id):
             # sys.stderr.flush()
             try_num += 1
             if try_num == max_try:
-                raise
+                sys.stdout.write(result.text)
+                raise Exception(u'unexpected')
             time.sleep(5)
             continue
     
@@ -79,9 +97,9 @@ def get_wish_list(sess, list_id):
 
     li_ary = product_lxml.cssselect(u'#g-items > li')
     if len(li_ary) == 0:
-        raise
+        raise Exception(u'unexpected')
 
-    item_ary = []
+    # item_ary = []
     dp_pattern = re.compile(r'^/dp/([^d]+)/')
     for li in li_ary:
         data_itemid = li.get(u"data-itemid")
@@ -99,7 +117,15 @@ def get_wish_list(sess, list_id):
         dp_id = dp_match.group(1)
         item_ary.append({u"dp": dp_id, u'title': item_title})
     
-    return item_ary
+    # showMoreUrl = product_lxml.cssselect(u'#g-items > form > input.showMoreUrl')
+    lastEvaluatedKey_elems = product_lxml.cssselect(u'input.lastEvaluatedKey')
+    if len(lastEvaluatedKey_elems)==0:
+        return None
+    elif len(lastEvaluatedKey_elems)==1:
+        return lastEvaluatedKey_elems[0].get(u"value")
+    else:
+        raise Exception(u"unexpected")
+    # return item_ary
 
 
 AMAZON_DP= AMAZON_CO_JP  + u'dp/'
@@ -138,7 +164,7 @@ def check_amazon(sess, dp):
             # print result.text
             try_num += 1
             if try_num == max_try:
-                raise
+                raise Exception(u'unexpected')
             else:
                 continue
         else:
