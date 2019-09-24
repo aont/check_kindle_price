@@ -28,7 +28,7 @@ class LINE(object):
     def notify(self, message):
         # print message
         # return
-        for t in xrange(5):
+        for t in range(5):
             try:
                 line_notify = self.sess.post(self.line_notify_api, data = {u'message': message}, headers = self.headers)
                 if requests.codes.ok != line_notify.status_code:
