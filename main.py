@@ -130,7 +130,7 @@ def get_wish_list_page(sess, list_id, item_ary, lastEvaluatedKey = None):
 
 AMAZON_DP= AMAZON_CO_JP  + u'dp/'
 def check_amazon(sess, dp):
-
+    sys.stderr.write(u'[info] check_amazon dp=%s\n' % dp)
     product_uri = AMAZON_DP + dp
 
     try_num = 0
@@ -154,7 +154,7 @@ def check_amazon(sess, dp):
             continue
         
         product_lxml = lxml.html.fromstring(result.text)
-        price_td_ary = product_lxml.cssselect(u'div > table > tr.kindle-price> td.a-color-price.a-size-medium.a-align-bottom')
+        price_td_ary = product_lxml.cssselect(u'tr.kindle-price> td.a-color-price')
 
         if len(price_td_ary) != 1:
             sys.stderr.write(u"[warn] amazon html format error. retrying...\n")
@@ -164,6 +164,8 @@ def check_amazon(sess, dp):
             # print result.text
             try_num += 1
             if try_num == max_try:
+                sys.stdout.write(result.content)
+                # sys.stdout.write(result.text)
                 raise Exception(u'unexpected')
             else:
                 continue
@@ -180,7 +182,7 @@ def check_amazon(sess, dp):
         # print "%s yen" % price_num
 
     point_num = 0
-    point_td_ary = product_lxml.cssselect(u'#buybox > div > table > tr.loyalty-points > td.a-align-bottom')
+    point_td_ary = product_lxml.cssselect(u'tr.loyalty-points > td.a-align-bottom')
     if len(point_td_ary) > 1:
         raise
     elif len(point_td_ary) == 1:
