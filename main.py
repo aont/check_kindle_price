@@ -173,9 +173,9 @@ def check_amazon(sess, dp):
             break
         
     price_td = price_td_ary[0]
-    price_innerhtml = lxml.etree.tostring(price_td)
+    price_innerhtml = lxml.etree.tostring(price_td).decode()
     # print price_innerhtml
-    price_pattern = re.compile(r'&#65509; ([0-9,]+)')
+    price_pattern = re.compile(u'&#65509; ([0-9,]+)')
     price_match_obj = price_pattern.search(price_innerhtml)
     if price_match_obj is not None:
         price_num = int(price_match_obj.group(1).replace(',',''))
@@ -187,7 +187,7 @@ def check_amazon(sess, dp):
         raise
     elif len(point_td_ary) == 1:
         point_td = point_td_ary[0]
-        point_innerhtml = lxml.etree.tostring(point_td)
+        point_innerhtml = lxml.etree.tostring(point_td).decode()
         # print point_innerhtml
         point_pattern = re.compile(r'([0-9,]+)pt')
         point_match_obj = point_pattern.search(point_innerhtml)
