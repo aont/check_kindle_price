@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 import io
@@ -28,6 +28,7 @@ class LINE(object):
     def notify(self, message):
         # print message
         # return
+        sys.stderr.write(u'[info] line notify: %s\n' % message)
         for t in range(5):
             try:
                 line_notify = self.sess.post(self.line_notify_api, data = {u'message': message}, headers = self.headers)
@@ -56,6 +57,7 @@ amazon_headers = {
     u'accept-encoding': u'gzip, deflate, br',
     u'accept-language': u'ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7',
 }
+
 
 def get_wish_list(sess, list_id):
     item_ary = []
@@ -206,8 +208,7 @@ def check_amazon(sess, dp):
 
     return (price_num, point_num)
 
-def main():
-    line_sess = requests.session()
+def main(line):
     amazon_sess = requests.session()
     
     pg_url = os.environ[u'DATABASE_URL']
@@ -215,16 +216,12 @@ def main():
     pg_conn = psycopg2.connect(pg_url)
     pg_cur = pg_conn.cursor()
 
-    line_notify_token = os.environ[u'LINE_TOKEN']
-    line = LINE(line_sess, line_notify_token)
-
-
     pg_result = pg_cur.execute(u"select 1 from pg_tables where schemaname='public' and tablename=%s ;", [table_name])
     pg_result = pg_cur.fetchone()
     if pg_result is None:
         pg_cur.execute(u"create table %s (dp text, price integer, point integer, date timestamp);" % (table_name))
     elif 1 != pg_result[0] :
-        raise
+        raise Exception(u"exception")
         
     # dp_ary = os.environ['AMAZON_GP_ARRAY'].split(',')
     list_id = os.environ[u'AMAZON_WISH_LIST_ID']
@@ -245,10 +242,10 @@ def main():
         datetime_now = datetime.datetime.now()
         new_state = check_amazon(amazon_sess, dp)
         new_net_price = new_state[0] - new_state[1]
-
+        sys.stdout.write(u'[info] dp=%s price=%s point=%s net_price=%s\n' % (dp, new_state[0], new_state[1], new_net_price))
         if new_net_price != prev_net_price:
-            line.notify(u"%s %s%s %s <- %s (%s)" % (item_title, AMAZON_DP, dp, new_net_price, prev_net_price, datetime_now.strftime(u"%Y/%m/%d %H:%M:%S")))
-
+            mes = u"%s %s%s %s <- %s (%s)" % (item_title, AMAZON_DP, dp, new_net_price, prev_net_price, datetime_now.strftime(u"%Y/%m/%d %H:%M:%S"))
+            line.notify(mes)
 
         pg_cur.execute(u'insert into %s VALUES (%%s, %%s, %%s, %%s);' % table_name, [dp, new_state[0], new_state[1], datetime_now])
 
@@ -268,4 +265,15 @@ def amazon_test():
 
 if __name__ == u'__main__':
     # amazon_test()
-    main()
+    line_sess = requests.session()
+    line_notify_token = os.environ[u'LINE_TOKEN']
+    line = LINE(line_sess, line_notify_token)
+
+    try:
+        main(line)
+    except Exception as e:
+        tbinfo = traceback.format_exc()
+        sys.stderr.write(tbinfo)
+        line.notify(tbinfo)
+        raise e
+
