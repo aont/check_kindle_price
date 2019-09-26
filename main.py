@@ -16,7 +16,7 @@ import psycopg2.extras
 import requests
 import lxml.html
 import cssselect
-
+import json
 
 class LINE(object):
     def __init__(self, sess, line_notify_token):
@@ -216,7 +216,8 @@ def main(line):
     amazon_sess = requests.session()
     
     pg_url = os.environ[u'DATABASE_URL']
-    table_name = u'amazon_price'
+    table_name = u'generic_text_data'
+    key_name = u'kindle_price'
     pg_conn = psycopg2.connect(pg_url)
     pg_cur = pg_conn.cursor()
 
@@ -225,28 +226,39 @@ def main(line):
     pg_result = pg_cur.fetchone()
     if pg_result is None:
         #sys.stderr.write(u'[info] creating table\n')
-        pg_cur_execute(pg_cur, u"create table %s (dp text, price integer, point integer, date timestamp);" % (table_name))
+        pg_cur_execute(pg_cur, u"create table %s (key text unique, value text);" % (table_name))
     elif 1 != pg_result[0] :
         raise Exception(u"exception")
-        
+    
+    # todo check  
+    pg_result = pg_cur_execute(pg_cur, u"select 1 from %s where key=%%s;" % table_name, [key_name])
+    pg_result = pg_cur.fetchone()
+    if pg_result is None:
+        pg_cur_execute(pg_cur, u'insert into %s VALUES (%%s, %%s);' % table_name, [key_name, u"{}"])
+    elif 1 != pg_result[0] :
+        raise Exception(u"exception")
+
     # dp_ary = os.environ['AMAZON_GP_ARRAY'].split(',')
     list_id = os.environ[u'AMAZON_WISH_LIST_ID']
     item_ary = get_wish_list(amazon_sess, list_id)
-        
+
+    pg_cur_execute(pg_cur, u'select value from %s where key=%%s;' % table_name, [key_name])
+    pg_result = pg_cur.fetchone()
+    
+    if pg_result is None:
+        kindle_price_data = {}
+    else:
+        sys.stderr.write(u'[info] data=%s\n' % pg_result[0])
+        kindle_price_data = json.loads(pg_result[0])
+
     for item in item_ary:
         dp = item[u'dp']
         item_title = item[u'title']
-        #sys.stderr.write(u'[info] querying item from the DB\n')
-        pg_cur_execute(pg_cur, u'select price - point from %s where dp=%%s order by date desc;' % table_name, [dp])
-        pg_result = pg_cur.fetchone()
-        if pg_result is None:
-            #sys.stderr.write(u'[info] new item on the DB\n')
+
+        if dp not in kindle_price_data:
             prev_net_price = -1
         else:
-            #sys.stderr.write(u'[info] existing item on the DB. deleting older data\n')
-            prev_net_price = pg_result[0]
-            pg_cur_execute(pg_cur, u'delete from %s where dp=%%s;' % table_name, [dp])
-            # sys.stderr.write(u'[info] delete done\n')
+            prev_net_price = kindle_price_data[dp]["price"] - kindle_price_data[dp]["point"]
 
         datetime_now = datetime.datetime.now()
         new_state = check_amazon(amazon_sess, dp)
@@ -255,10 +267,18 @@ def main(line):
         if new_net_price != prev_net_price:
             mes = u"%s %s%s %s <- %s (%s)" % (item_title, AMAZON_DP, dp, new_net_price, prev_net_price, datetime_now.strftime(u"%Y/%m/%d %H:%M:%S"))
             line.notify(mes)
+            # sys.stderr.write("[info] %s\n" %mes)
         
         # sys.stderr.write(u'[info] inserting data\n')
-        pg_cur_execute(pg_cur, u'insert into %s VALUES (%%s, %%s, %%s, %%s);' % table_name, [dp, new_state[0], new_state[1], datetime_now])
+        # pg_cur_execute(pg_cur, u'insert into %s VALUES (%%s, %%s, %%s, %%s);' % table_name, [dp, new_state[0], new_state[1], datetime_now])
+        kindle_price_data[dp] = { \
+            "title": item_title, \
+            "price": new_state[0], \
+            "point": new_state[1], \
+            "date": datetime_now.strftime(u"%Y/%m/%d %H:%M:%S") \
+        }
 
+    pg_cur_execute(pg_cur, u'update %s set value = %%s where key = %%s;' % table_name, [json.dumps(kindle_price_data), key_name])
     pg_cur.close()
     pg_conn.commit()
     pg_conn.close()
