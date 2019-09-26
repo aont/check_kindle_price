@@ -58,6 +58,9 @@ amazon_headers = {
     u'accept-language': u'ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7',
 }
 
+def pg_cur_execute(pg_cur, query, param=None):
+    sys.stderr.write(u'[info] postgres: %s param=%s\n' % (query, param))
+    return pg_cur.execute(query, param)
 
 def get_wish_list(sess, list_id):
     item_ary = []
@@ -198,7 +201,8 @@ def check_amazon(sess, dp):
             # print "%s pt" % point_num
 
     try:
-        upsell_button_announce = product_lxml.get_element_by_id(u'upsell-button-announce')
+        # upsell_button_announce = 
+        product_lxml.get_element_by_id(u'upsell-button-announce')
         # if upsell_button_announce is not None:
         sys.stderr.write("[Info] unlimited!\n")
         price_num = - price_num
@@ -216,12 +220,12 @@ def main(line):
     pg_conn = psycopg2.connect(pg_url)
     pg_cur = pg_conn.cursor()
 
-    sys.stderr.write(u'[info] checking whether table exists\n')
-    pg_result = pg_cur.execute(u"select 1 from pg_tables where schemaname='public' and tablename=%s ;", [table_name])
+    #sys.stderr.write(u'[info] checking whether table exists\n')
+    pg_result = pg_cur_execute(pg_cur, u"select 1 from pg_tables where schemaname='public' and tablename=%s ;", [table_name])
     pg_result = pg_cur.fetchone()
     if pg_result is None:
-        sys.stderr.write(u'[info] creating table\n')
-        pg_cur.execute(u"create table %s (dp text, price integer, point integer, date timestamp);" % (table_name))
+        #sys.stderr.write(u'[info] creating table\n')
+        pg_cur_execute(pg_cur, u"create table %s (dp text, price integer, point integer, date timestamp);" % (table_name))
     elif 1 != pg_result[0] :
         raise Exception(u"exception")
         
@@ -232,17 +236,17 @@ def main(line):
     for item in item_ary:
         dp = item[u'dp']
         item_title = item[u'title']
-        sys.stderr.write(u'[info] querying item from the DB\n')
-        pg_cur.execute(u'select price - point from %s where dp=%%s order by date desc;' % table_name, [dp])
+        #sys.stderr.write(u'[info] querying item from the DB\n')
+        pg_cur_execute(pg_cur, u'select price - point from %s where dp=%%s order by date desc;' % table_name, [dp])
         pg_result = pg_cur.fetchone()
         if pg_result is None:
-            sys.stderr.write(u'[info] new item on the DB\n')
+            #sys.stderr.write(u'[info] new item on the DB\n')
             prev_net_price = -1
         else:
-            sys.stderr.write(u'[info] existing item on the DB. deleting older data\n')
+            #sys.stderr.write(u'[info] existing item on the DB. deleting older data\n')
             prev_net_price = pg_result[0]
-            pg_cur.execute(u'delete from %s where dp=%%s;' % table_name, [dp])
-            sys.stderr.write(u'[info] delete done\n')
+            pg_cur_execute(pg_cur, u'delete from %s where dp=%%s;' % table_name, [dp])
+            # sys.stderr.write(u'[info] delete done\n')
 
         datetime_now = datetime.datetime.now()
         new_state = check_amazon(amazon_sess, dp)
@@ -251,10 +255,10 @@ def main(line):
         if new_net_price != prev_net_price:
             mes = u"%s %s%s %s <- %s (%s)" % (item_title, AMAZON_DP, dp, new_net_price, prev_net_price, datetime_now.strftime(u"%Y/%m/%d %H:%M:%S"))
             line.notify(mes)
+        
+        # sys.stderr.write(u'[info] inserting data\n')
+        pg_cur_execute(pg_cur, u'insert into %s VALUES (%%s, %%s, %%s, %%s);' % table_name, [dp, new_state[0], new_state[1], datetime_now])
 
-        sys.stderr.write(u'[info] inserting data\n')
-        pg_cur.execute(u'insert into %s VALUES (%%s, %%s, %%s, %%s);' % table_name, [dp, new_state[0], new_state[1], datetime_now])
-    
     pg_cur.close()
     pg_conn.commit()
     pg_conn.close()
