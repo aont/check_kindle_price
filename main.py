@@ -58,8 +58,16 @@ amazon_headers = {
     u'accept-language': u'ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7',
 }
 
+def str_abbreviate(str_in):
+    len_str_in = len(str_in)
+    if len_str_in > 128*2+10:
+        return str_in[0:128] + " ... " + str_in[-128:]
+    else:
+        return str_in
+
 def pg_cur_execute(pg_cur, query, param=None):
-    sys.stderr.write(u'[info] postgres: %s param=%s\n' % (query, param))
+    param_str = str_abbreviate("%s" % param)
+    sys.stderr.write(u'[info] postgres: %s param=%s\n' % (query, param_str))
     return pg_cur.execute(query, param)
 
 def get_wish_list(sess, list_id):
@@ -248,7 +256,7 @@ def main(line):
     if pg_result is None:
         kindle_price_data = {}
     else:
-        sys.stderr.write(u'[info] data=%s\n' % pg_result[0])
+        sys.stderr.write(u'[info] data=%s\n' % str_abbreviate(pg_result[0]))
         kindle_price_data = json.loads(pg_result[0])
 
     for item in item_ary:
