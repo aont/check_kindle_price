@@ -107,10 +107,12 @@ def get_wish_list_page(sess, list_id, item_ary, lastEvaluatedKey = None):
             continue
     
     product_lxml = lxml.html.fromstring(result.text)
-
-    li_ary = product_lxml.cssselect(u'#g-items > li')
-    if len(li_ary) == 0:
-        raise Exception(u'unexpected')
+    try:
+        g_items = product_lxml.get_element_by_id(u'g-items')
+    except KeyError as e:
+        sys.stdout.write(result.text)
+        raise e
+    li_ary = g_items.cssselect(u'li')
 
     # item_ary = []
     dp_pattern = re.compile(r'^/dp/([^d]+)/')
@@ -124,7 +126,7 @@ def get_wish_list_page(sess, list_id, item_ary, lastEvaluatedKey = None):
         # sys.stdout.write("%s %s %s\n" % (item_title, item_href, item_html))
         dp_match = dp_pattern.match(item_href)
         if dp_match is None:
-            raise
+            raise Exception(u"unexpected")
         # sys.stdout.write("dpid %s\n" % dp_match.group(1))
 
         dp_id = dp_match.group(1)
@@ -177,7 +179,7 @@ def check_amazon(sess, dp):
             # print result.text
             try_num += 1
             if try_num == max_try:
-                sys.stdout.write(result.content)
+                sys.stdout.write(result.text)
                 # sys.stdout.write(result.text)
                 raise Exception(u'unexpected')
             else:
@@ -197,7 +199,7 @@ def check_amazon(sess, dp):
     point_num = 0
     point_td_ary = product_lxml.cssselect(u'tr.loyalty-points > td.a-align-bottom')
     if len(point_td_ary) > 1:
-        raise
+        raise Exception(u"unexpected")
     elif len(point_td_ary) == 1:
         point_td = point_td_ary[0]
         point_innerhtml = lxml.etree.tostring(point_td).decode()
@@ -271,7 +273,7 @@ def main(line):
         datetime_now = datetime.datetime.now()
         new_state = check_amazon(amazon_sess, dp)
         new_net_price = new_state[0] - new_state[1]
-        sys.stdout.write(u'[info] price=%s point=%s net_price=%s\n' % (new_state[0], new_state[1], new_net_price))
+        sys.stderr.write(u'[info] price=%s point=%s net_price=%s\n' % (new_state[0], new_state[1], new_net_price))
         if new_net_price != prev_net_price:
             mes = u"%s %s%s %s <- %s (%s)" % (item_title, AMAZON_DP, dp, new_net_price, prev_net_price, datetime_now.strftime(u"%Y/%m/%d %H:%M:%S"))
             line.notify(mes)
@@ -297,7 +299,7 @@ def amazon_test():
     # dp = u"B0192CTNQI"
     dp = u'B017NIF84E'
     new_state = check_amazon(amazon_sess, dp)
-    sys.stdout.write("%s %s\n" % (new_state[0], new_state[1]) )
+    sys.stderr.write("%s %s\n" % (new_state[0], new_state[1]) )
 
 if __name__ == u'__main__':
     # amazon_test()
@@ -305,11 +307,4 @@ if __name__ == u'__main__':
     line_notify_token = os.environ[u'LINE_TOKEN']
     line = LINE(line_sess, line_notify_token)
 
-    try:
-        main(line)
-    except Exception as e:
-        tbinfo = traceback.format_exc()
-        sys.stderr.write(tbinfo)
-        line.notify(tbinfo)
-        raise e
-
+    main(line)
