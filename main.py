@@ -65,10 +65,33 @@ def str_abbreviate(str_in):
     else:
         return str_in
 
-def pg_cur_execute(pg_cur, query, param=None):
+def pg_execute(pg_cur, query, param=None):
     param_str = str_abbreviate("%s" % param)
     sys.stderr.write(u'[info] postgres: %s param=%s\n' % (query, param_str))
     return pg_cur.execute(query, param)
+
+def pg_init_json(pg_cur, table_name, key_name):
+    pg_result = pg_execute(pg_cur, u"select 1 from pg_tables where schemaname='public' and tablename=%s ;", [table_name])
+    pg_result = pg_cur.fetchone()
+    if pg_result is None:
+        #sys.stderr.write(u'[info] creating table\n')
+        pg_execute(pg_cur, u"create table %s (key text unique, value text);" % (table_name))
+    elif 1 != pg_result[0] :
+        raise Exception(u"exception")
+
+    pg_execute(pg_cur, u'select value from %s where key=%%s;' % table_name, [key_name])
+    pg_result = pg_cur.fetchone()
+    
+    if pg_result is None:
+        pg_execute(pg_cur, u'insert into %s VALUES (%%s, %%s);' % table_name, [key_name, u"{}"])
+        pg_data = {}
+    else:
+        sys.stderr.write(u'[info] data=%s\n' % str_abbreviate(pg_result[0]))
+        pg_data = json.loads(pg_result[0])
+    return pg_data
+
+def pg_update_json(pg_cur, table_name, key_name, pg_data):
+    return pg_execute(pg_cur, u'update %s set value = %%s where key = %%s;' % table_name, [json.dumps(pg_data), key_name])
 
 def get_wish_list(sess, list_id):
     item_ary = []
@@ -230,28 +253,10 @@ def main(line):
     key_name = u'kindle_price'
     pg_conn = psycopg2.connect(pg_url)
     pg_cur = pg_conn.cursor()
-
-    #sys.stderr.write(u'[info] checking whether table exists\n')
-    pg_result = pg_cur_execute(pg_cur, u"select 1 from pg_tables where schemaname='public' and tablename=%s ;", [table_name])
-    pg_result = pg_cur.fetchone()
-    if pg_result is None:
-        #sys.stderr.write(u'[info] creating table\n')
-        pg_cur_execute(pg_cur, u"create table %s (key text unique, value text);" % (table_name))
-    elif 1 != pg_result[0] :
-        raise Exception(u"exception")
+    kindle_price_data = pg_init_json(pg_cur, table_name, key_name)
 
     list_id = os.environ[u'AMAZON_WISH_LIST_ID']
     item_ary = get_wish_list(amazon_sess, list_id)
-
-    pg_cur_execute(pg_cur, u'select value from %s where key=%%s;' % table_name, [key_name])
-    pg_result = pg_cur.fetchone()
-    
-    if pg_result is None:
-        pg_cur_execute(pg_cur, u'insert into %s VALUES (%%s, %%s);' % table_name, [key_name, u"{}"])
-        kindle_price_data = {}
-    else:
-        sys.stderr.write(u'[info] data=%s\n' % str_abbreviate(pg_result[0]))
-        kindle_price_data = json.loads(pg_result[0])
 
     kindle_price_data_new = {}
     for item in item_ary:
@@ -273,7 +278,7 @@ def main(line):
             # sys.stderr.write("[info] %s\n" %mes)
         
         # sys.stderr.write(u'[info] inserting data\n')
-        # pg_cur_execute(pg_cur, u'insert into %s VALUES (%%s, %%s, %%s, %%s);' % table_name, [dp, new_state[0], new_state[1], datetime_now])
+        # pg_execute(pg_cur, u'insert into %s VALUES (%%s, %%s, %%s, %%s);' % table_name, [dp, new_state[0], new_state[1], datetime_now])
         kindle_price_data_new[dp] = { \
             "title": item_title, \
             "price": new_state[0], \
@@ -281,7 +286,7 @@ def main(line):
             "date": datetime_now.strftime(u"%Y/%m/%d %H:%M:%S") \
         }
 
-    pg_cur_execute(pg_cur, u'update %s set value = %%s where key = %%s;' % table_name, [json.dumps(kindle_price_data_new), key_name])
+    pg_update_json(pg_cur, table_name, key_name, kindle_price_data_new)
     pg_cur.close()
     pg_conn.commit()
     pg_conn.close()
@@ -299,5 +304,4 @@ if __name__ == u'__main__':
     line_sess = requests.session()
     line_notify_token = os.environ[u'LINE_TOKEN']
     line = LINE(line_sess, line_notify_token)
-
     main(line)
