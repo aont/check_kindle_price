@@ -9,6 +9,7 @@ import time
 import datetime
 import re
 import traceback
+import json
 
 import requests
 import psycopg2
@@ -16,36 +17,7 @@ import psycopg2.extras
 import requests
 import lxml.html
 import cssselect
-import json
-
-class LINE(object):
-    def __init__(self, sess, line_notify_token):
-        self.sess = sess
-        self.line_notify_token = line_notify_token
-        self.line_notify_api = u'https://notify-api.line.me/api/notify'
-        self.headers = {u'Authorization': u'Bearer ' + line_notify_token}
-
-    def notify(self, message):
-        # print message
-        # return
-        sys.stderr.write(u'[info] line notify: %s\n' % message)
-        for t in range(5):
-            try:
-                line_notify = self.sess.post(self.line_notify_api, data = {u'message': message}, headers = self.headers)
-                if requests.codes.ok != line_notify.status_code:
-                    sys.stderr.write(u"[info] line status_code = %s\n" % line_notify.status_code)
-                    sys.stderr.write(u"[info] wait for 5s and retry\n")
-                    # sys.stderr.flush()
-                    time.sleep(5)
-                    continue
-
-                break
-            except requests.exceptions.ConnectionError as e:
-                sys.stderr.write(u"[warn] LINE ConnectionError occured. retrying...\n")
-                sys.stderr.write(traceback.format_exc())
-                # sys.stderr.flush()
-                continue
-
+import sendgrid
 
 AMAZON_CO_JP=u'https://www.amazon.co.jp/'
 amazon_headers = {
@@ -56,6 +28,7 @@ amazon_headers = {
     u'accept': u'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3',
     u'accept-encoding': u'gzip, deflate, br',
     u'accept-language': u'ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7',
+    u'referer': AMAZON_CO_JP,
 }
 
 def str_abbreviate(str_in):
@@ -231,7 +204,6 @@ def check_amazon(sess, dp):
         point_match_obj = point_pattern.search(point_innerhtml)
         if point_match_obj is not None:
             point_num = int(point_match_obj.group(1).replace(u',',u''))
-            # print "%s pt" % point_num
 
     try:
         # upsell_button_announce = 
@@ -245,9 +217,9 @@ def check_amazon(sess, dp):
 
     return (price_num, point_num)
 
-def main(line):
-    amazon_sess = requests.session()
-    
+def main():
+    amazon_sess = requests.session()    
+
     pg_url = os.environ[u'DATABASE_URL']
     table_name = u'generic_text_data'
     key_name = u'kindle_price'
@@ -258,6 +230,7 @@ def main(line):
     list_id = os.environ[u'AMAZON_WISH_LIST_ID']
     item_ary = get_wish_list(amazon_sess, list_id)
 
+    messages = []
     kindle_price_data_new = {}
     for item in item_ary:
         dp = item[u'dp']
@@ -273,12 +246,10 @@ def main(line):
         new_net_price = new_state[0] - new_state[1]
         sys.stderr.write(u'[info] price=%s point=%s net_price=%s\n' % (new_state[0], new_state[1], new_net_price))
         if new_net_price != prev_net_price:
-            mes = u"%s %s%s %s <- %s (%s)" % (item_title, AMAZON_DP, dp, new_net_price, prev_net_price, datetime_now.strftime(u"%Y/%m/%d %H:%M:%S"))
-            line.notify(mes)
-            # sys.stderr.write("[info] %s\n" %mes)
+            mes = u"<a href=\"%s%s\">%s</a> %s <- %s" % (AMAZON_DP, dp, item_title, new_net_price, prev_net_price)
+            messages.append(mes)
+            sys.stderr.write("[info] %s\n" %mes)
         
-        # sys.stderr.write(u'[info] inserting data\n')
-        # pg_execute(pg_cur, u'insert into %s VALUES (%%s, %%s, %%s, %%s);' % table_name, [dp, new_state[0], new_state[1], datetime_now])
         kindle_price_data_new[dp] = { \
             "title": item_title, \
             "price": new_state[0], \
@@ -291,17 +262,15 @@ def main(line):
     pg_conn.commit()
     pg_conn.close()
 
-
-def amazon_test():
-    amazon_sess = requests.session()
-    # dp = u"B0192CTNQI"
-    dp = u'B017NIF84E'
-    new_state = check_amazon(amazon_sess, dp)
-    sys.stderr.write("%s %s\n" % (new_state[0], new_state[1]) )
+    if len(messages)>0:
+        message_str = "<br />\n".join(messages)
+        sg_username = os.environ["SENDGRID_USERNAME"]
+        sg_recipient = os.environ["SENDGRID_RECIPIENT"]
+        sg_apikey = os.environ["SENDGRID_APIKEY"]
+        sg_client = sendgrid.SendGridAPIClient(sg_apikey)
+        sg_from = u"\"Check Kindle Price\" <%s>"%sg_username
+        message = sendgrid.Mail(from_email=sg_from, to_emails=[sg_recipient], subject=u"Update of Kindle Price", html_content=message_str)
+        sg_client.send(message)
 
 if __name__ == u'__main__':
-    # amazon_test()
-    line_sess = requests.session()
-    line_notify_token = os.environ[u'LINE_TOKEN']
-    line = LINE(line_sess, line_notify_token)
-    main(line)
+    main()
