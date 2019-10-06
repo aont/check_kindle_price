@@ -65,7 +65,7 @@ def pg_init_json(pg_cur, table_name, key_name):
     return pg_data
 
 def pg_update_json(pg_cur, table_name, key_name, pg_data):
-    return pg_execute(pg_cur, u'update %s set value = %%s where key = %%s;' % table_name, [json.dumps(pg_data), key_name])
+    return pg_execute(pg_cur, u'update %s set value = %%s where key = %%s;' % table_name, [json.dumps(pg_data, ensure_ascii=False), key_name])
 
 def get_wish_list(sess, list_id):
     item_ary = []
