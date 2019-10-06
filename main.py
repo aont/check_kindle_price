@@ -19,6 +19,7 @@ import lxml.html
 import cssselect
 import sendgrid
 
+sleep_duration = 0
 AMAZON_CO_JP=u'https://www.amazon.co.jp/'
 amazon_headers = {
     u'authority': u'www.amazon.co.jp',
@@ -99,7 +100,7 @@ def get_wish_list_page(sess, list_id, item_ary, lastEvaluatedKey = None):
             if try_num == max_try:
                 sys.stdout.write(result.text)
                 raise Exception(u'unexpected')
-            time.sleep(5)
+            time.sleep(sleep_duration)
             continue
     
     product_lxml = lxml.html.fromstring(result.text)
@@ -154,14 +155,14 @@ def check_amazon(sess, dp):
             sys.stderr.write(u"[info] amazon temporarily unavailable\n")
             sys.stderr.write(u"[info] wait for 5s and retry\n")
             # sys.stderr.flush()
-            time.sleep(5)
+            time.sleep(sleep_duration)
             continue
 
         if requests.codes.ok != result.status_code:
             sys.stderr.write(u"[info] amazon status_code = %s\n" % result.status_code)
             sys.stderr.write(u"[info] wait for 5s and retry\n")
             # sys.stderr.flush()
-            time.sleep(5)
+            time.sleep(sleep_duration)
             continue
         
         product_lxml = lxml.html.fromstring(result.text)
@@ -264,6 +265,7 @@ def main():
 
     if len(messages)>0:
         message_str = "<br />\n".join(messages)
+        sys.stderr.write(u"[info] mailing via sendgrid\n")
         sg_username = os.environ["SENDGRID_USERNAME"]
         sg_recipient = os.environ["SENDGRID_RECIPIENT"]
         sg_apikey = os.environ["SENDGRID_APIKEY"]
