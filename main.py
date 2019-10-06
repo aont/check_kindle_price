@@ -90,7 +90,7 @@ def get_wish_list_page(sess, list_id, item_ary, lastEvaluatedKey = None):
     max_try = 5
     while True:
         result = sess.get(url, headers = amazon_headers)
-        if requests.codes.ok == result.status_code:
+        if requests.codes.get("ok") == result.status_code:
             break
         else:
             sys.stderr.write(u"[info] amazon status_code = %s\n" % result.status_code)
@@ -151,14 +151,14 @@ def check_amazon(sess, dp):
         
         result = sess.get(product_uri, headers = amazon_headers)
         # result = sess.get(product_uri)
-        if requests.codes.unavailable == result.status_code:
+        if requests.codes.get("unavailable") == result.status_code:
             sys.stderr.write(u"[info] amazon temporarily unavailable\n")
             sys.stderr.write(u"[info] wait for 5s and retry\n")
             # sys.stderr.flush()
             time.sleep(sleep_duration)
             continue
 
-        if requests.codes.ok != result.status_code:
+        if requests.codes.get("ok") != result.status_code:
             sys.stderr.write(u"[info] amazon status_code = %s\n" % result.status_code)
             sys.stderr.write(u"[info] wait for 5s and retry\n")
             # sys.stderr.flush()
