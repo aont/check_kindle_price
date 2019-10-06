@@ -19,7 +19,7 @@ import lxml.html
 import cssselect
 import sendgrid
 
-sleep_duration = 0
+sleep_duration = 5
 AMAZON_CO_JP=u'https://www.amazon.co.jp/'
 amazon_headers = {
     u'authority': u'www.amazon.co.jp',
