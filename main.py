@@ -272,6 +272,7 @@ def main():
         sg_client = sendgrid.SendGridAPIClient(sg_apikey)
         sg_from = u"\"Check Kindle Price\" <%s>"%sg_username
         message = sendgrid.Mail(from_email=sg_from, to_emails=[sg_recipient], subject=u"Update of Kindle Price", html_content=message_str)
+        message.reply_to = sg_recipient
         sg_client.send(message)
 
 if __name__ == u'__main__':
