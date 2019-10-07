@@ -113,7 +113,7 @@ def get_wish_list_page(sess, list_id, item_ary, lastEvaluatedKey = None):
     li_ary = g_items.cssselect(u'li')
 
     # item_ary = []
-    dp_pattern = re.compile(r'^/dp/([^d]+)/')
+    dp_pattern = re.compile('/dp/(.*?)/')
     for li in li_ary:
         data_itemid = li.get(u"data-itemid")
         # sys.stderr.write("[Info] data-itemid: %s \n" % data_itemid)
@@ -122,7 +122,7 @@ def get_wish_list_page(sess, list_id, item_ary, lastEvaluatedKey = None):
         item_href = itemname_elem.get(u'href')
         # item_html = itemname_elem.text
         # sys.stdout.write("%s %s %s\n" % (item_title, item_href, item_html))
-        dp_match = dp_pattern.match(item_href)
+        dp_match = dp_pattern.search(item_href)
         if dp_match is None:
             raise Exception(u"unexpected")
         # sys.stdout.write("dpid %s\n" % dp_match.group(1))
@@ -202,7 +202,7 @@ def check_amazon(sess, dp):
         point_td = point_td_ary[0]
         point_innerhtml = lxml.etree.tostring(point_td).decode()
         # print point_innerhtml
-        point_pattern = re.compile(r'([0-9,]+)pt')
+        point_pattern = re.compile('([0-9,]+)pt')
         point_match_obj = point_pattern.search(point_innerhtml)
         if point_match_obj is not None:
             point_num = int(point_match_obj.group(1).replace(u',',u''))
