@@ -157,20 +157,33 @@ def check_amazon(sess, dp):
             sys.stderr.write(u"[info] wait for 5s and retry\n")
             # sys.stderr.flush()
             time.sleep(sleep_duration)
-            continue
+            try_num += 1
+            if try_num == max_try:
+                sys.stdout.write(result.text)
+                # sys.stdout.write(result.text)
+                raise Exception(u'unexpected')
+            else:
+                continue
 
         if requests.codes.get("ok") != result.status_code:
             sys.stderr.write(u"[info] amazon status_code = %s\n" % result.status_code)
             sys.stderr.write(u"[info] wait for 5s and retry\n")
             # sys.stderr.flush()
             time.sleep(sleep_duration)
-            continue
+            try_num += 1
+            if try_num == max_try:
+                sys.stdout.write(result.text)
+                # sys.stdout.write(result.text)
+                raise Exception(u'unexpected')
+            else:
+                continue
         
         product_lxml = lxml.html.fromstring(result.text)
         price_td_ary = product_lxml.cssselect(u'tr.kindle-price> td.a-color-price')
 
         if len(price_td_ary) != 1:
             sys.stderr.write(u"[warn] amazon html format error. retrying...\n")
+            time.sleep(sleep_duration)
             # sys.stderr.flush()
             # sys.stdout.write(result.content)
             # codecs.getwriter('utf_8')(sys.stdout).write(result.text)
