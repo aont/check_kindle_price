@@ -18,6 +18,7 @@ import requests
 import lxml.html
 import cssselect
 import sendgrid
+sendgrid.Email()
 
 sleep_duration = 5
 AMAZON_CO_JP=u'https://www.amazon.co.jp/'
@@ -270,7 +271,7 @@ def main():
         sg_recipient = os.environ["SENDGRID_RECIPIENT"]
         sg_apikey = os.environ["SENDGRID_APIKEY"]
         sg_client = sendgrid.SendGridAPIClient(sg_apikey)
-        sg_from = u"\"Check Kindle Price\" <%s>"%sg_username
+        sg_from = sendgrid.Email(name="Check Kindle Price", email=sg_username)
         message = sendgrid.Mail(from_email=sg_from, to_emails=[sg_recipient], subject=u"Update of Kindle Price", html_content=message_str)
         message.reply_to = sg_recipient
         sg_client.send(message)
