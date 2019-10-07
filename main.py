@@ -33,6 +33,17 @@ amazon_headers = {
     u'referer': AMAZON_CO_JP,
 }
 
+def send_mail(message_str, subject):
+    sys.stderr.write(u"[info] mailing via sendgrid\n")
+    sg_username = os.environ["SENDGRID_USERNAME"]
+    sg_recipient = os.environ["SENDGRID_RECIPIENT"]
+    sg_apikey = os.environ["SENDGRID_APIKEY"]
+    sg_client = sendgrid.SendGridAPIClient(sg_apikey)
+    sg_from = sendgrid.Email(name="Check Kindle Price", email=sg_username)
+    message = sendgrid.Mail(from_email=sg_from, to_emails=[sg_recipient], subject=subject, html_content=message_str)
+    message.reply_to = sg_recipient
+    sg_client.send(message)
+
 def str_abbreviate(str_in):
     len_str_in = len(str_in)
     if len_str_in > 128*2+10:
@@ -99,7 +110,7 @@ def get_wish_list_page(sess, list_id, item_ary, lastEvaluatedKey = None):
             # sys.stderr.flush()
             try_num += 1
             if try_num == max_try:
-                sys.stdout.write(result.text)
+                send_mail(result.text, "Alert")
                 raise Exception(u'unexpected')
             time.sleep(sleep_duration)
             continue
@@ -108,7 +119,7 @@ def get_wish_list_page(sess, list_id, item_ary, lastEvaluatedKey = None):
     try:
         g_items = product_lxml.get_element_by_id(u'g-items')
     except KeyError as e:
-        sys.stdout.write(result.text)
+        send_mail(result.text, "Alert")
         raise e
     li_ary = g_items.cssselect(u'li')
 
@@ -159,7 +170,7 @@ def check_amazon(sess, dp):
             time.sleep(sleep_duration)
             try_num += 1
             if try_num == max_try:
-                sys.stdout.write(result.text)
+                send_mail(result.text, "Alert")
                 # sys.stdout.write(result.text)
                 raise Exception(u'unexpected')
             else:
@@ -172,7 +183,7 @@ def check_amazon(sess, dp):
             time.sleep(sleep_duration)
             try_num += 1
             if try_num == max_try:
-                sys.stdout.write(result.text)
+                send_mail(result.text, "Alert")
                 # sys.stdout.write(result.text)
                 raise Exception(u'unexpected')
             else:
@@ -190,7 +201,7 @@ def check_amazon(sess, dp):
             # print result.text
             try_num += 1
             if try_num == max_try:
-                sys.stdout.write(result.text)
+                send_mail(result.text, "Alert")
                 # sys.stdout.write(result.text)
                 raise Exception(u'unexpected')
             else:
@@ -278,16 +289,7 @@ def main():
     pg_conn.close()
 
     if len(messages)>0:
-        message_str = "<br />\n".join(messages)
-        sys.stderr.write(u"[info] mailing via sendgrid\n")
-        sg_username = os.environ["SENDGRID_USERNAME"]
-        sg_recipient = os.environ["SENDGRID_RECIPIENT"]
-        sg_apikey = os.environ["SENDGRID_APIKEY"]
-        sg_client = sendgrid.SendGridAPIClient(sg_apikey)
-        sg_from = sendgrid.Email(name="Check Kindle Price", email=sg_username)
-        message = sendgrid.Mail(from_email=sg_from, to_emails=[sg_recipient], subject=u"Update of Kindle Price", html_content=message_str)
-        message.reply_to = sg_recipient
-        sg_client.send(message)
+        send_mail("<br />\n".join(messages), "Update of Kindle Price")
 
 if __name__ == u'__main__':
     main()
