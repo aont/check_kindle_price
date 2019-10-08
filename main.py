@@ -18,7 +18,6 @@ import requests
 import lxml.html
 import cssselect
 import sendgrid
-sendgrid.Email()
 
 sleep_duration = 5
 AMAZON_CO_JP=u'https://www.amazon.co.jp/'
@@ -284,12 +283,13 @@ def main():
         }
 
     pg_update_json(pg_cur, table_name, key_name, kindle_price_data_new)
-    pg_cur.close()
-    pg_conn.commit()
-    pg_conn.close()
 
     if len(messages)>0:
         send_mail("<br />\n".join(messages), "Update of Kindle Price")
+    
+    pg_cur.close()
+    pg_conn.commit()
+    pg_conn.close()
 
 if __name__ == u'__main__':
     main()
