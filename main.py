@@ -104,7 +104,7 @@ def get_wish_list(sess, list_id):
 
 def get_wish_list_page(sess, list_id, item_ary, lastEvaluatedKey = None):
 
-    url = AMAZON_CO_JP + 'hz/wishlist/lsa/' + list_id
+    url = AMAZON_CO_JP + 'hz/wishlist/ls/' + list_id
     if lastEvaluatedKey is not None:
         url += "?lek=" + lastEvaluatedKey
 
