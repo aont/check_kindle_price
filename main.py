@@ -10,6 +10,8 @@ import datetime
 import re
 import traceback
 import json
+import base64
+import inspect
 
 import requests
 import psycopg2
@@ -18,6 +20,7 @@ import requests
 import lxml.html
 import cssselect
 import sendgrid
+import sendgrid.helpers
 
 sleep_duration = 5
 AMAZON_CO_JP='https://www.amazon.co.jp/'
@@ -32,15 +35,23 @@ amazon_headers = {
     'referer': AMAZON_CO_JP,
 }
 
-def send_mail(message_str, subject):
+def send_alert_mail(frame, attach_html):
+    cf = frame.f_back
+    send_mail("Exception: %s:%s:%s" % (cf.f_code.co_filename, cf.f_code.co_name, cf.f_lineno), "Check Kindle Price: Alert",  attach_html=attach_html)
+
+def send_mail(message_str, subject, attach_html=None):
     sys.stderr.write("[info] mailing via sendgrid\n")
     sg_username = os.environ["SENDGRID_USERNAME"]
     sg_recipient = os.environ["SENDGRID_RECIPIENT"]
     sg_apikey = os.environ["SENDGRID_APIKEY"]
     sg_client = sendgrid.SendGridAPIClient(sg_apikey)
+    
     sg_from = sendgrid.Email(name="Check Kindle Price", email=sg_username)
     message = sendgrid.Mail(from_email=sg_from, to_emails=[sg_recipient], subject=subject, html_content=message_str)
     message.reply_to = sg_recipient
+    if attach_html:
+        attachment_file = sendgrid.Attachment(file_content=base64.b64encode(attach_html.encode()).decode(), file_type="text/html", file_name="attach.html")
+        message.add_attachment(attachment_file)
     sg_client.send(message)
 
 def str_abbreviate(str_in):
@@ -93,7 +104,7 @@ def get_wish_list(sess, list_id):
 
 def get_wish_list_page(sess, list_id, item_ary, lastEvaluatedKey = None):
 
-    url = AMAZON_CO_JP + 'hz/wishlist/ls/' + list_id
+    url = AMAZON_CO_JP + 'hz/wishlist/lsa/' + list_id
     if lastEvaluatedKey is not None:
         url += "?lek=" + lastEvaluatedKey
 
@@ -109,7 +120,7 @@ def get_wish_list_page(sess, list_id, item_ary, lastEvaluatedKey = None):
             # sys.stderr.flush()
             try_num += 1
             if try_num == max_try:
-                send_mail(result.text, "Alert")
+                send_alert_mail(inspect.currentframe(), attach_html=result.text)
                 raise Exception('unexpected')
             time.sleep(sleep_duration)
             continue
@@ -118,7 +129,7 @@ def get_wish_list_page(sess, list_id, item_ary, lastEvaluatedKey = None):
     try:
         g_items = product_lxml.get_element_by_id('g-items')
     except KeyError as e:
-        send_mail(result.text, "Alert")
+        send_alert_mail(inspect.currentframe(), attach_html=result.text)
         raise e
     li_ary = g_items.cssselect('li')
 
@@ -134,6 +145,7 @@ def get_wish_list_page(sess, list_id, item_ary, lastEvaluatedKey = None):
         # sys.stdout.write("%s %s %s\n" % (item_title, item_href, item_html))
         dp_match = dp_pattern.search(item_href)
         if dp_match is None:
+            send_alert_mail(inspect.currentframe(), attach_html=result.text)
             raise Exception("unexpected")
         # sys.stdout.write("dpid %s\n" % dp_match.group(1))
 
@@ -147,6 +159,7 @@ def get_wish_list_page(sess, list_id, item_ary, lastEvaluatedKey = None):
     elif len(lastEvaluatedKey_elems)==1:
         return lastEvaluatedKey_elems[0].get("value")
     else:
+        send_alert_mail(inspect.currentframe(), attach_html=result.text)
         raise Exception("unexpected")
     # return item_ary
 
@@ -169,7 +182,7 @@ def check_amazon(sess, dp):
             time.sleep(sleep_duration)
             try_num += 1
             if try_num == max_try:
-                send_mail(result.text, "Alert")
+                send_alert_mail(inspect.currentframe(), attach_html=result.text)
                 # sys.stdout.write(result.text)
                 raise Exception('unexpected')
             else:
@@ -182,7 +195,7 @@ def check_amazon(sess, dp):
             time.sleep(sleep_duration)
             try_num += 1
             if try_num == max_try:
-                send_mail(result.text, "Alert")
+                send_alert_mail(inspect.currentframe(), attach_html=result.text)
                 # sys.stdout.write(result.text)
                 raise Exception('unexpected')
             else:
@@ -200,7 +213,7 @@ def check_amazon(sess, dp):
             # print result.text
             try_num += 1
             if try_num == max_try:
-                send_mail(result.text, "Alert")
+                send_alert_mail(inspect.currentframe(), attach_html=result.text)
                 # sys.stdout.write(result.text)
                 raise Exception('unexpected')
             else:
@@ -244,16 +257,20 @@ def check_amazon(sess, dp):
     return (price_num, point_num)
 
 def main():
-    amazon_sess = requests.session()    
-
+    amazon_cookie = os.environ.get("AMAZON_COOKIE")
+    if amazon_cookie:
+        amazon_headers["cookie"] = amazon_cookie
+    
+    list_id = os.environ['AMAZON_WISH_LIST_ID']
     pg_url = os.environ['DATABASE_URL']
     table_name = 'generic_text_data'
     key_name = 'kindle_price'
+
+    amazon_sess = requests.session()    
     pg_conn = psycopg2.connect(pg_url)
     pg_cur = pg_conn.cursor()
     kindle_price_data = pg_init_json(pg_cur, table_name, key_name)
 
-    list_id = os.environ['AMAZON_WISH_LIST_ID']
     item_ary = get_wish_list(amazon_sess, list_id)
 
     messages = []
