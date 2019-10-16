@@ -50,7 +50,7 @@ def send_mail(message_str, subject, attach_html=None):
     message = sendgrid.Mail(from_email=sg_from, to_emails=[sg_recipient], subject=subject, html_content=message_str)
     message.reply_to = sg_recipient
     if attach_html:
-        attachment_file = sendgrid.Attachment(file_content=base64.b64encode(attach_html.encode()).decode(), file_type="text/html", file_name="attach.html")
+        attachment_file = sendgrid.Attachment(file_content=base64.b64encode(attach_html).decode(), file_type="text/html", file_name="attach.html")
         message.add_attachment(attachment_file)
     sg_client.send(message)
 
@@ -120,7 +120,7 @@ def get_wish_list_page(sess, list_id, item_ary, lastEvaluatedKey = None):
             # sys.stderr.flush()
             try_num += 1
             if try_num == max_try:
-                send_alert_mail(inspect.currentframe(), attach_html=result.text)
+                send_alert_mail(inspect.currentframe(), attach_html=result.content)
                 raise Exception('unexpected')
             time.sleep(sleep_duration)
             continue
@@ -129,7 +129,7 @@ def get_wish_list_page(sess, list_id, item_ary, lastEvaluatedKey = None):
     try:
         g_items = product_lxml.get_element_by_id('g-items')
     except KeyError as e:
-        send_alert_mail(inspect.currentframe(), attach_html=result.text)
+        send_alert_mail(inspect.currentframe(), attach_html=result.content)
         raise e
     li_ary = g_items.cssselect('li')
 
@@ -145,7 +145,7 @@ def get_wish_list_page(sess, list_id, item_ary, lastEvaluatedKey = None):
         # sys.stdout.write("%s %s %s\n" % (item_title, item_href, item_html))
         dp_match = dp_pattern.search(item_href)
         if dp_match is None:
-            send_alert_mail(inspect.currentframe(), attach_html=result.text)
+            send_alert_mail(inspect.currentframe(), attach_html=result.content)
             raise Exception("unexpected")
         # sys.stdout.write("dpid %s\n" % dp_match.group(1))
 
@@ -159,7 +159,7 @@ def get_wish_list_page(sess, list_id, item_ary, lastEvaluatedKey = None):
     elif len(lastEvaluatedKey_elems)==1:
         return lastEvaluatedKey_elems[0].get("value")
     else:
-        send_alert_mail(inspect.currentframe(), attach_html=result.text)
+        send_alert_mail(inspect.currentframe(), attach_html=result.content)
         raise Exception("unexpected")
     # return item_ary
 
@@ -182,7 +182,7 @@ def check_amazon(sess, dp):
             time.sleep(sleep_duration)
             try_num += 1
             if try_num == max_try:
-                send_alert_mail(inspect.currentframe(), attach_html=result.text)
+                send_alert_mail(inspect.currentframe(), attach_html=result.content)
                 # sys.stdout.write(result.text)
                 raise Exception('unexpected')
             else:
@@ -195,7 +195,7 @@ def check_amazon(sess, dp):
             time.sleep(sleep_duration)
             try_num += 1
             if try_num == max_try:
-                send_alert_mail(inspect.currentframe(), attach_html=result.text)
+                send_alert_mail(inspect.currentframe(), attach_html=result.content)
                 # sys.stdout.write(result.text)
                 raise Exception('unexpected')
             else:
@@ -213,7 +213,7 @@ def check_amazon(sess, dp):
             # print result.text
             try_num += 1
             if try_num == max_try:
-                send_alert_mail(inspect.currentframe(), attach_html=result.text)
+                send_alert_mail(inspect.currentframe(), attach_html=result.content)
                 # sys.stdout.write(result.text)
                 raise Exception('unexpected')
             else:
