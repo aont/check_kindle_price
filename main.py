@@ -90,20 +90,24 @@ def pg_update_json(pg_cur, table_name, key_name, pg_data):
     return pg_execute(pg_cur, 'update %s set value = %%s where key = %%s;' % table_name, [json.dumps(pg_data, ensure_ascii=False), key_name])
 
 def get_wish_list(sess, list_id):
-    item_ary = []
-    lastEvaluatedKey = None
+    # item_ary = []
+    # lastEvaluatedKey = None
+    lastEvaluatedKey_ref = [None]
     while True:
-        lastEvaluatedKey = get_wish_list_page(sess, list_id, item_ary, lastEvaluatedKey)
+        for items in get_wish_list_page(sess, list_id, lastEvaluatedKey_ref):
+            yield items
+        lastEvaluatedKey = lastEvaluatedKey_ref[0] # get_wish_list_page(sess, list_id, item_ary, lastEvaluatedKey)
         if lastEvaluatedKey is None:
             break
         else:
             sys.stderr.write("[info] lastEvaluatedKey: %s\n" % lastEvaluatedKey)
         
     sys.stderr.write("[info] get_wish_list done\n")
-    return item_ary
+    # return item_ary
 
-def get_wish_list_page(sess, list_id, item_ary, lastEvaluatedKey = None):
+def get_wish_list_page(sess, list_id, lastEvaluatedKey_ref):
 
+    lastEvaluatedKey = lastEvaluatedKey_ref[0]
     url = AMAZON_CO_JP + 'hz/wishlist/ls/' + list_id
     if lastEvaluatedKey is not None:
         url += "?lek=" + lastEvaluatedKey
@@ -150,14 +154,19 @@ def get_wish_list_page(sess, list_id, item_ary, lastEvaluatedKey = None):
         # sys.stdout.write("dpid %s\n" % dp_match.group(1))
 
         dp_id = dp_match.group(1)
-        item_ary.append({"dp": dp_id, 'title': item_title})
+        yield {"dp": dp_id, 'title': item_title}
+        # item_ary.append({"dp": dp_id, 'title': item_title})
     
     # showMoreUrl = product_lxml.cssselect('#g-items > form > input.showMoreUrl')
     lastEvaluatedKey_elems = product_lxml.cssselect('input.lastEvaluatedKey')
     if len(lastEvaluatedKey_elems)==0:
-        return None
+        # return None
+        lastEvaluatedKey_ref[0] = None
+        return
     elif len(lastEvaluatedKey_elems)==1:
-        return lastEvaluatedKey_elems[0].get("value")
+        lastEvaluatedKey_ref[0] = lastEvaluatedKey_elems[0].get("value")
+        # return lastEvaluatedKey_elems[0].get("value")
+        return
     else:
         send_alert_mail(inspect.currentframe(), attach_html=result.content)
         raise Exception("unexpected")
@@ -225,7 +234,7 @@ def check_amazon(sess, dp):
     price_innerhtml = lxml.etree.tostring(price_td).decode()
     # sys.stderr.write('[info] price_innerhtml=%s\n' % price_innerhtml)
     # print price_innerhtml
-    price_pattern = re.compile('&#65509;\s*([0-9,]+)')
+    price_pattern = re.compile('&#65509;\\s*([0-9,]+)')
     price_match_obj = price_pattern.search(price_innerhtml)
     if price_match_obj is not None:
         price_num = int(price_match_obj.group(1).replace(',',''))
@@ -271,11 +280,11 @@ def main():
     pg_cur = pg_conn.cursor()
     kindle_price_data = pg_init_json(pg_cur, table_name, key_name)
 
-    item_ary = get_wish_list(amazon_sess, list_id)
+    # item_ary = get_wish_list(amazon_sess, list_id)
 
     messages = []
     kindle_price_data_new = {}
-    for item in item_ary:
+    for item in get_wish_list(amazon_sess, list_id):
         dp = item['dp']
         item_title = item['title']
 
@@ -299,6 +308,8 @@ def main():
             "point": new_state[1], \
             "date": datetime_now.strftime("%Y/%m/%d %H:%M:%S") \
         }
+
+    amazon_sess.close()
 
     pg_update_json(pg_cur, table_name, key_name, kindle_price_data_new)
 
