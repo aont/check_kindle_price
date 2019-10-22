@@ -12,6 +12,7 @@ import traceback
 import json
 import base64
 import inspect
+import urllib.parse
 
 import requests
 import psycopg2
@@ -105,10 +106,11 @@ def get_wish_list(sess, list_id):
     sys.stderr.write("[info] get_wish_list done\n")
     # return item_ary
 
+AMAZON_LIST=urllib.parse.urljoin(AMAZON_CO_JP, '/hz/wishlist/ls/')
 def get_wish_list_page(sess, list_id, lastEvaluatedKey_ref):
 
     lastEvaluatedKey = lastEvaluatedKey_ref[0]
-    url = AMAZON_CO_JP + 'hz/wishlist/ls/' + list_id
+    url = urllib.parse.urljoin(AMAZON_LIST, list_id)
     if lastEvaluatedKey is not None:
         url += "?lek=" + lastEvaluatedKey
 
@@ -173,10 +175,10 @@ def get_wish_list_page(sess, list_id, lastEvaluatedKey_ref):
     # return item_ary
 
 
-AMAZON_DP= AMAZON_CO_JP  + 'dp/'
+AMAZON_DP= urllib.parse.urljoin(AMAZON_CO_JP, '/dp/')
 def check_amazon(sess, dp):
     sys.stderr.write('[info] check_amazon dp=%s\n' % dp)
-    product_uri = AMAZON_DP + dp
+    product_uri = urllib.parse.urljoin(AMAZON_DP, dp)
 
     try_num = 0
     max_try = 5
@@ -298,7 +300,7 @@ def main():
         new_net_price = new_state[0] - new_state[1]
         sys.stderr.write('[info] price=%s point=%s net_price=%s\n' % (new_state[0], new_state[1], new_net_price))
         if new_net_price != prev_net_price:
-            mes = "<a href=\"%s%s\">%s</a> %s <- %s" % (AMAZON_DP, dp, item_title, new_net_price, prev_net_price)
+            mes = "<a href=\"%s\">%s</a> %s <- %s" % (urllib.parse.urljoin(AMAZON_DP, dp), item_title, new_net_price, prev_net_price)
             messages.append(mes)
             sys.stderr.write("[info] %s\n" %mes)
         
