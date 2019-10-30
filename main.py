@@ -255,17 +255,20 @@ def check_amazon(sess, dp):
         if point_match_obj is not None:
             point_num = int(point_match_obj.group(1).replace(',',''))
 
-    try:
-        # upsell_button_announce = 
-        product_lxml.get_element_by_id('upsell-button-announce')
-        # if upsell_button_announce is not None:
-        sys.stderr.write("[Info] unlimited!\n")
-        price_num = - price_num
-        point_num = - point_num
-    except KeyError:
-        pass
+    unlimited = ('読み放題で読む' in result.text)
+    # try:
+    #     # upsell_button_announce = 
+    #     product_lxml.get_element_by_id('upsell-button-announce')
+    #     # if upsell_button_announce is not None:
+    #     sys.stderr.write("[Info] unlimited!\n")
+    #     input()
+    #     price_num = - price_num
+    #     point_num = - point_num
+    # except KeyError:
+    #     input("not unlimited")
+    #     pass
 
-    return (price_num, point_num)
+    return (price_num, point_num, unlimited)
 
 def main():
     amazon_cookie = os.environ.get("AMAZON_COOKIE")
@@ -292,15 +295,19 @@ def main():
 
         if dp not in kindle_price_data:
             prev_net_price = -1
+            prev_unlimited = False
         else:
             prev_net_price = kindle_price_data[dp]["price"] - kindle_price_data[dp]["point"]
+            prev_unlimited = kindle_price_data[dp].get("unlimited")
 
         datetime_now = datetime.datetime.now()
         new_state = check_amazon(amazon_sess, dp)
         new_net_price = new_state[0] - new_state[1]
         sys.stderr.write('[info] price=%s point=%s net_price=%s\n' % (new_state[0], new_state[1], new_net_price))
-        if new_net_price != prev_net_price:
-            mes = "<a href=\"%s\">%s</a> %s <- %s" % (urllib.parse.urljoin(AMAZON_DP, dp), item_title, new_net_price, prev_net_price)
+        unlimited = new_state[2]
+
+        if new_net_price != prev_net_price or prev_unlimited != unlimited:
+            mes = "<a href=\"%s\">%s</a> %s %s<- %s" % (urllib.parse.urljoin(AMAZON_DP, dp), item_title, new_net_price, ("unlimited " if unlimited else ""), prev_net_price)
             messages.append(mes)
             sys.stderr.write("[info] %s\n" %mes)
         
@@ -308,6 +315,7 @@ def main():
             "title": item_title, \
             "price": new_state[0], \
             "point": new_state[1], \
+            "unlimited": new_state[2], \
             "date": datetime_now.strftime("%Y/%m/%d %H:%M:%S") \
         }
 
