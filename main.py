@@ -31,7 +31,7 @@ amazon_headers = {
     'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.103 Safari/537.36',
     'dnt': '1',
     'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3',
-    'accept-encoding': 'gzip, deflate, br',
+    'accept-encoding': 'identity',
     'accept-language': 'ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7',
     'referer': AMAZON_CO_JP,
 }
@@ -118,6 +118,7 @@ def get_wish_list_page(sess, list_id, lastEvaluatedKey_ref):
     max_try = 5
     while True:
         result = sess.get(url, headers = amazon_headers)
+        amazon_headers["referer"] = url
         if requests.codes.get("ok") == result.status_code:
             break
         else:
@@ -185,6 +186,8 @@ def check_amazon(sess, dp):
     while True:
         
         result = sess.get(product_uri, headers = amazon_headers)
+        amazon_headers["referer"] = product_uri
+        # sys.stderr.write("%s\n" % result.headers)
         # result = sess.get(product_uri)
         if requests.codes.get("unavailable") == result.status_code:
             sys.stderr.write("[info] amazon temporarily unavailable\n")
@@ -303,8 +306,8 @@ def main():
         datetime_now = datetime.datetime.now()
         new_state = check_amazon(amazon_sess, dp)
         new_net_price = new_state[0] - new_state[1]
-        sys.stderr.write('[info] price=%s point=%s net_price=%s\n' % (new_state[0], new_state[1], new_net_price))
         unlimited = new_state[2]
+        sys.stderr.write('[info] price=%s point=%s net_price=%s unlimited=%s\n' % (new_state[0], new_state[1], new_net_price, unlimited))
 
         if new_net_price != prev_net_price or prev_unlimited != unlimited:
             mes = "<a href=\"%s\">%s</a> %s %s<- %s" % (urllib.parse.urljoin(AMAZON_DP, dp), item_title, new_net_price, ("unlimited " if unlimited else ""), prev_net_price)
