@@ -242,6 +242,7 @@ def main():
     # kindle_price_data_new = {}
     check_progres = False
     exc = None
+    exc_tb = None
     # signal.signal(signal.SIGINT, sigint_handler)
     try:
         for item in get_wish_list(amazon_sess, list_id):
@@ -285,7 +286,7 @@ def main():
             # if sigint_caught > 0:
             #     break
     except Exception as e:
-        sys.stderr.write(traceback.format_exc())
+        exc_tb = traceback.format_exc()
         exc = e
 
     amazon_sess.close()
@@ -302,6 +303,8 @@ def main():
 
     if (not check_progres) and exc:
         raise exc
+    elif exc:
+        sys.stderr.write(exc_tb)
 
 if __name__ == '__main__':
     main()
