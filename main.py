@@ -267,8 +267,9 @@ def main():
                 # sys.stderr.write("[info] %s %s\n" % (date_prev, datetime_now) )
                 continue
             else:
-                sys.stderr.write("[info] skipped following since these are checked within %s minutes:\n%s" % (min_skip, ", ".join(skip_list)) )
-                skip_list = []
+                if len(messages)>0:
+                    sys.stderr.write("[info] skipped following since these are checked within %s minutes:\n%s" % (min_skip, ", ".join(skip_list)) )
+                    skip_list = []
             new_state = check_amazon(amazon_sess, dp)
             new_net_price = new_state[0] - new_state[1]
             unlimited = new_state[2]
