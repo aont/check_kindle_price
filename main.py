@@ -25,6 +25,8 @@ import sendgrid
 import sendgrid.helpers
 
 sleep_duration = 5
+max_try = 3
+
 AMAZON_CO_JP='https://www.amazon.co.jp/'
 amazon_headers = {
     'authority': 'www.amazon.co.jp',
@@ -116,7 +118,6 @@ def get_wish_list_page(sess, list_id, lastEvaluatedKey_ref):
         url += "?lek=" + lastEvaluatedKey
 
     try_num = 0
-    max_try = 5
     while True:
         try:
             result = sess.get(url, headers = amazon_headers)
@@ -155,7 +156,7 @@ def get_wish_list_page(sess, list_id, lastEvaluatedKey_ref):
             if try_num == max_try:
                 send_alert_mail(inspect.currentframe(), attach_html=result.content)
                 raise e
-            sys.stderr.write("[info] retry access in 5s\n")
+            sys.stderr.write("[info] retry access in %ss\n" % sleep_duration)
             time.sleep(sleep_duration)
             continue
 
@@ -165,7 +166,6 @@ def check_amazon(sess, dp):
     product_uri = urllib.parse.urljoin(AMAZON_DP, dp)
 
     try_num = 0
-    max_try = 5
     while True:
         try:
             result = sess.get(product_uri, headers = amazon_headers)
@@ -210,7 +210,7 @@ def check_amazon(sess, dp):
             if try_num == max_try:
                 send_alert_mail(inspect.currentframe(), attach_html=result.content)
                 raise e
-            sys.stderr.write("[info] retry access in 5s\n")
+            sys.stderr.write("[info] retry access in %ss\n" % sleep_duration)
             time.sleep(sleep_duration)
             continue
         
