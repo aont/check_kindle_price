@@ -117,7 +117,16 @@ def get_wish_list_page(sess, list_id, lastEvaluatedKey_ref):
     try_num = 0
     max_try = 5
     while True:
-        result = sess.get(url, headers = amazon_headers)
+        try:
+            result = sess.get(url, headers = amazon_headers)
+        except Exception as e:
+            try_num += 1
+            if try_num == max_try:
+                send_alert_mail(inspect.currentframe(), attach_html=result.content)
+                raise e
+            time.sleep(sleep_duration)
+            continue
+
         amazon_headers["referer"] = url
         if requests.codes.get("ok") == result.status_code:
             break
@@ -185,7 +194,16 @@ def check_amazon(sess, dp):
     max_try = 5
     while True:
         
-        result = sess.get(product_uri, headers = amazon_headers)
+        try:
+            result = sess.get(product_uri, headers = amazon_headers)
+        except Exception as e:
+            try_num += 1
+            if try_num == max_try:
+                send_alert_mail(inspect.currentframe(), attach_html=result.content)
+                raise e
+            time.sleep(sleep_duration)
+            continue
+
         amazon_headers["referer"] = product_uri
         # sys.stderr.write("%s\n" % result.headers)
         # result = sess.get(product_uri)
@@ -193,13 +211,13 @@ def check_amazon(sess, dp):
             sys.stderr.write("[info] amazon temporarily unavailable\n")
             sys.stderr.write("[info] wait for 5s and retry\n")
             # sys.stderr.flush()
-            time.sleep(sleep_duration)
             try_num += 1
             if try_num == max_try:
                 send_alert_mail(inspect.currentframe(), attach_html=result.content)
                 # sys.stdout.write(result.text)
                 raise Exception('unexpected')
             else:
+                time.sleep(sleep_duration)
                 continue
 
         if requests.codes.get("ok") != result.status_code:
