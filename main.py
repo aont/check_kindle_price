@@ -243,6 +243,7 @@ def main():
     check_progres = False
     exc = None
     exc_tb = None
+    skip_list = []
     # signal.signal(signal.SIGINT, sigint_handler)
     try:
         for item in get_wish_list(amazon_sess, list_id):
@@ -261,9 +262,13 @@ def main():
             datetime_now = datetime.datetime.now()
             min_skip = 30
             if date_prev and ((date_prev + datetime.timedelta(minutes=min_skip)) > datetime_now):
-                sys.stderr.write("[info] skipping %s since this is checked within %s minutes\n" % (dp, min_skip) )
+                skip_list.append(dp)
+                # sys.stderr.write("[info] skipping %s since this is checked within %s minutes\n" % (dp, min_skip) )
                 # sys.stderr.write("[info] %s %s\n" % (date_prev, datetime_now) )
                 continue
+            else:
+                sys.stderr.write("[info] skipped followingsince these are checked within %s minutes:\n%s" % (min_skip, ", ".join(skip_list)) )
+                skip_list = []
             new_state = check_amazon(amazon_sess, dp)
             new_net_price = new_state[0] - new_state[1]
             unlimited = new_state[2]
@@ -285,6 +290,8 @@ def main():
             check_progres = True
             # if sigint_caught > 0:
             #     break
+        if len(skip_list)>0:
+            sys.stderr.write("[info] skipped followingsince these are checked within %s minutes:\n%s" % (min_skip, ", ".join(skip_list)) )
     except Exception as e:
         exc_tb = traceback.format_exc()
         exc = e
