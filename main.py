@@ -13,6 +13,7 @@ import json
 import base64
 import inspect
 import urllib.parse
+import signal
 
 import requests
 import psycopg2
@@ -111,7 +112,7 @@ def get_wish_list_page(sess, list_id, lastEvaluatedKey_ref):
 
     lastEvaluatedKey = lastEvaluatedKey_ref[0]
     url = urllib.parse.urljoin(AMAZON_LIST, list_id)
-    if lastEvaluatedKey is not None:
+    if lastEvaluatedKey:
         url += "?lek=" + lastEvaluatedKey
 
     try_num = 0
@@ -146,6 +147,8 @@ def get_wish_list_page(sess, list_id, lastEvaluatedKey_ref):
 
                 dp_id = dp_match.group(1)
                 yield {"dp": dp_id, 'title': item_title}
+
+            break
             
         except Exception as e:
             try_num += 1
@@ -211,6 +214,11 @@ def check_amazon(sess, dp):
             time.sleep(sleep_duration)
             continue
         
+# sigint_caught = 0
+# def sigint_handler(signum, frame):
+#     sigint_caught += 1
+#     if sigint_caught > 5:
+#         sys.exit()
 
 def main():
     amazon_cookie = os.environ.get("AMAZON_COOKIE")
@@ -231,36 +239,54 @@ def main():
     # pg_conn.close()
 
     messages = []
-    kindle_price_data_new = {}
-    for item in get_wish_list(amazon_sess, list_id):
-        dp = item['dp']
-        item_title = item['title']
+    # kindle_price_data_new = {}
+    check_progres = False
+    # exc = None
+    # signal.signal(signal.SIGINT, sigint_handler)
+    try:
+        for item in get_wish_list(amazon_sess, list_id):
+            dp = item['dp']
+            item_title = item['title']
 
-        if dp not in kindle_price_data:
-            prev_net_price = -1
-            prev_unlimited = False
-        else:
-            prev_net_price = kindle_price_data[dp]["price"] - kindle_price_data[dp]["point"]
-            prev_unlimited = kindle_price_data[dp].get("unlimited")
+            if dp not in kindle_price_data:
+                prev_net_price = -1
+                prev_unlimited = False
+                date_prev = None
+            else:
+                prev_net_price = kindle_price_data[dp]["price"] - kindle_price_data[dp]["point"]
+                prev_unlimited = kindle_price_data[dp].get("unlimited")
+                date_prev = datetime.datetime.strptime(kindle_price_data[dp].get("date"), "%Y/%m/%d %H:%M:%S")
 
-        datetime_now = datetime.datetime.now()
-        new_state = check_amazon(amazon_sess, dp)
-        new_net_price = new_state[0] - new_state[1]
-        unlimited = new_state[2]
-        sys.stderr.write('[info] price=%s point=%s net_price=%s unlimited=%s\n' % (new_state[0], new_state[1], new_net_price, unlimited))
+            datetime_now = datetime.datetime.now()
+            min_skip = 30
+            if date_prev and ((date_prev + datetime.timedelta(minutes=min_skip)) > datetime_now):
+                sys.stderr.write("[info] skipping %s since this is checked within %s minutes\n" % (dp, min_skip) )
+                # sys.stderr.write("[info] %s %s\n" % (date_prev, datetime_now) )
+                continue
+            new_state = check_amazon(amazon_sess, dp)
+            new_net_price = new_state[0] - new_state[1]
+            unlimited = new_state[2]
+            sys.stderr.write('[info] price=%s point=%s net_price=%s unlimited=%s\n' % (new_state[0], new_state[1], new_net_price, unlimited))
 
-        if new_net_price != prev_net_price or prev_unlimited != unlimited:
-            mes = "<a href=\"%s\">%s</a> %s %s<- %s" % (urllib.parse.urljoin(AMAZON_DP, dp), item_title, new_net_price, ("unlimited " if unlimited else ""), prev_net_price)
-            messages.append(mes)
-            sys.stderr.write("[info] %s\n" %mes)
-        
-        kindle_price_data_new[dp] = { \
-            "title": item_title, \
-            "price": new_state[0], \
-            "point": new_state[1], \
-            "unlimited": new_state[2], \
-            "date": datetime_now.strftime("%Y/%m/%d %H:%M:%S") \
-        }
+            if new_net_price != prev_net_price or prev_unlimited != unlimited:
+                mes = "<a href=\"%s\">%s</a> %s %s<- %s" % (urllib.parse.urljoin(AMAZON_DP, dp), item_title, new_net_price, ("unlimited " if unlimited else ""), prev_net_price)
+                messages.append(mes)
+                sys.stderr.write("[info] %s\n" %mes)
+            
+            kindle_price_data[dp] = { \
+                "title": item_title, \
+                "price": new_state[0], \
+                "point": new_state[1], \
+                "unlimited": new_state[2], \
+                "date": datetime_now.strftime("%Y/%m/%d %H:%M:%S") \
+            }
+            
+            check_progres = True
+            # if sigint_caught > 0:
+            #     break
+    except Exception as e:
+        sys.stderr.write(traceback.format_exc())
+        exc = e
 
     amazon_sess.close()
 
@@ -269,10 +295,13 @@ def main():
 
     # pg_conn = psycopg2.connect(pg_url)
     # pg_cur = pg_conn.cursor()
-    pg_update_json(pg_cur, table_name, key_name, kindle_price_data_new)    
+    pg_update_json(pg_cur, table_name, key_name, kindle_price_data)
     pg_cur.close()
     pg_conn.commit()
     pg_conn.close()
+
+    if (not check_progres) and exc:
+        raise exc
 
 if __name__ == '__main__':
     main()
