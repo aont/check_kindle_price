@@ -241,7 +241,7 @@ def main():
     messages = []
     # kindle_price_data_new = {}
     check_progres = False
-    # exc = None
+    exc = None
     # signal.signal(signal.SIGINT, sigint_handler)
     try:
         for item in get_wish_list(amazon_sess, list_id):
