@@ -119,71 +119,42 @@ def get_wish_list_page(sess, list_id, lastEvaluatedKey_ref):
     while True:
         try:
             result = sess.get(url, headers = amazon_headers)
+            amazon_headers["referer"] = url
+            result.raise_for_status()
+
+            product_lxml = lxml.html.fromstring(result.text)
+            g_items = product_lxml.get_element_by_id('g-items')
+            li_ary = g_items.cssselect('li')
+
+            lastEvaluatedKey_elems = product_lxml.cssselect('input.lastEvaluatedKey')
+            if len(lastEvaluatedKey_elems)==0:
+                lastEvaluatedKey_ref[0] = None
+            elif len(lastEvaluatedKey_elems)==1:
+                lastEvaluatedKey_ref[0] = lastEvaluatedKey_elems[0].get("value")
+            else:
+                raise Exception("unexpected")
+            
+            dp_pattern = re.compile('/dp/(.*?)/')
+            for li in li_ary:
+                data_itemid = li.get("data-itemid")
+                itemname_elem = li.get_element_by_id('itemName_%s' % data_itemid)
+                item_title = itemname_elem.get('title')
+                item_href = itemname_elem.get('href')
+                dp_match = dp_pattern.search(item_href)
+                if dp_match is None:
+                    raise Exception("unexpected")
+
+                dp_id = dp_match.group(1)
+                yield {"dp": dp_id, 'title': item_title}
+            
         except Exception as e:
             try_num += 1
             if try_num == max_try:
                 send_alert_mail(inspect.currentframe(), attach_html=result.content)
                 raise e
+            sys.stderr.write("[info] retry access in 5s\n")
             time.sleep(sleep_duration)
             continue
-
-        amazon_headers["referer"] = url
-        if requests.codes.get("ok") == result.status_code:
-            break
-        else:
-            sys.stderr.write("[info] amazon status_code = %s\n" % result.status_code)
-            sys.stderr.write("[info] wait for 5s and retry\n")
-            # sys.stderr.flush()
-            try_num += 1
-            if try_num == max_try:
-                send_alert_mail(inspect.currentframe(), attach_html=result.content)
-                raise Exception('unexpected')
-            time.sleep(sleep_duration)
-            continue
-    
-    product_lxml = lxml.html.fromstring(result.text)
-    try:
-        g_items = product_lxml.get_element_by_id('g-items')
-    except KeyError as e:
-        send_alert_mail(inspect.currentframe(), attach_html=result.content)
-        raise e
-    li_ary = g_items.cssselect('li')
-
-    # item_ary = []
-    dp_pattern = re.compile('/dp/(.*?)/')
-    for li in li_ary:
-        data_itemid = li.get("data-itemid")
-        # sys.stderr.write("[Info] data-itemid: %s \n" % data_itemid)
-        itemname_elem = li.get_element_by_id('itemName_%s' % data_itemid)
-        item_title = itemname_elem.get('title')
-        item_href = itemname_elem.get('href')
-        # item_html = itemname_elem.text
-        # sys.stdout.write("%s %s %s\n" % (item_title, item_href, item_html))
-        dp_match = dp_pattern.search(item_href)
-        if dp_match is None:
-            send_alert_mail(inspect.currentframe(), attach_html=result.content)
-            raise Exception("unexpected")
-        # sys.stdout.write("dpid %s\n" % dp_match.group(1))
-
-        dp_id = dp_match.group(1)
-        yield {"dp": dp_id, 'title': item_title}
-        # item_ary.append({"dp": dp_id, 'title': item_title})
-    
-    # showMoreUrl = product_lxml.cssselect('#g-items > form > input.showMoreUrl')
-    lastEvaluatedKey_elems = product_lxml.cssselect('input.lastEvaluatedKey')
-    if len(lastEvaluatedKey_elems)==0:
-        # return None
-        lastEvaluatedKey_ref[0] = None
-        return
-    elif len(lastEvaluatedKey_elems)==1:
-        lastEvaluatedKey_ref[0] = lastEvaluatedKey_elems[0].get("value")
-        # return lastEvaluatedKey_elems[0].get("value")
-        return
-    else:
-        send_alert_mail(inspect.currentframe(), attach_html=result.content)
-        raise Exception("unexpected")
-    # return item_ary
-
 
 AMAZON_DP= urllib.parse.urljoin(AMAZON_CO_JP, '/dp/')
 def check_amazon(sess, dp):
@@ -193,103 +164,53 @@ def check_amazon(sess, dp):
     try_num = 0
     max_try = 5
     while True:
-        
         try:
             result = sess.get(product_uri, headers = amazon_headers)
+            amazon_headers["referer"] = product_uri
+            result.raise_for_status()
+            
+            product_lxml = lxml.html.fromstring(result.text)
+            price_td_ary = product_lxml.cssselect('tr.kindle-price> td.a-color-price')
+
+            if len(price_td_ary) != 1:
+                raise Exception("amazon html format error")
+ 
+            price_td = price_td_ary[0]
+            price_innerhtml = lxml.etree.tostring(price_td).decode()
+
+            price_pattern = re.compile('&#65509;\\s*([0-9,]+)')
+            price_match_obj = price_pattern.search(price_innerhtml)
+            if price_match_obj is not None:
+                price_num = int(price_match_obj.group(1).replace(',',''))
+                # print "%s yen" % price_num
+
+            point_num = 0
+            point_td_ary = product_lxml.cssselect('tr.loyalty-points > td.a-align-bottom')
+            if len(point_td_ary) > 1:
+                raise Exception("unexpected")
+            elif len(point_td_ary) == 1:
+                point_td = point_td_ary[0]
+                point_innerhtml = lxml.etree.tostring(point_td).decode()
+                # print point_innerhtml
+                point_pattern = re.compile('([0-9,]+)pt')
+                point_match_obj = point_pattern.search(point_innerhtml)
+                if point_match_obj is not None:
+                    point_num = int(point_match_obj.group(1).replace(',',''))
+
+            unlimited = ('読み放題で読む' in result.text)
+
+            return (price_num, point_num, unlimited)
+            # break
+
         except Exception as e:
             try_num += 1
             if try_num == max_try:
                 send_alert_mail(inspect.currentframe(), attach_html=result.content)
                 raise e
+            sys.stderr.write("[info] retry access in 5s\n")
             time.sleep(sleep_duration)
             continue
-
-        amazon_headers["referer"] = product_uri
-        # sys.stderr.write("%s\n" % result.headers)
-        # result = sess.get(product_uri)
-        if requests.codes.get("unavailable") == result.status_code:
-            sys.stderr.write("[info] amazon temporarily unavailable\n")
-            sys.stderr.write("[info] wait for 5s and retry\n")
-            # sys.stderr.flush()
-            try_num += 1
-            if try_num == max_try:
-                send_alert_mail(inspect.currentframe(), attach_html=result.content)
-                # sys.stdout.write(result.text)
-                raise Exception('unexpected')
-            else:
-                time.sleep(sleep_duration)
-                continue
-
-        if requests.codes.get("ok") != result.status_code:
-            sys.stderr.write("[info] amazon status_code = %s\n" % result.status_code)
-            sys.stderr.write("[info] wait for 5s and retry\n")
-            # sys.stderr.flush()
-            time.sleep(sleep_duration)
-            try_num += 1
-            if try_num == max_try:
-                send_alert_mail(inspect.currentframe(), attach_html=result.content)
-                # sys.stdout.write(result.text)
-                raise Exception('unexpected')
-            else:
-                continue
         
-        product_lxml = lxml.html.fromstring(result.text)
-        price_td_ary = product_lxml.cssselect('tr.kindle-price> td.a-color-price')
-
-        if len(price_td_ary) != 1:
-            sys.stderr.write("[warn] amazon html format error. retrying...\n")
-            time.sleep(sleep_duration)
-            # sys.stderr.flush()
-            # sys.stdout.write(result.content)
-            # codecs.getwriter('utf_8')(sys.stdout).write(result.text)
-            # print result.text
-            try_num += 1
-            if try_num == max_try:
-                send_alert_mail(inspect.currentframe(), attach_html=result.content)
-                # sys.stdout.write(result.text)
-                raise Exception('unexpected')
-            else:
-                continue
-        else:
-            break
-        
-    price_td = price_td_ary[0]
-    price_innerhtml = lxml.etree.tostring(price_td).decode()
-    # sys.stderr.write('[info] price_innerhtml=%s\n' % price_innerhtml)
-    # print price_innerhtml
-    price_pattern = re.compile('&#65509;\\s*([0-9,]+)')
-    price_match_obj = price_pattern.search(price_innerhtml)
-    if price_match_obj is not None:
-        price_num = int(price_match_obj.group(1).replace(',',''))
-        # print "%s yen" % price_num
-
-    point_num = 0
-    point_td_ary = product_lxml.cssselect('tr.loyalty-points > td.a-align-bottom')
-    if len(point_td_ary) > 1:
-        raise Exception("unexpected")
-    elif len(point_td_ary) == 1:
-        point_td = point_td_ary[0]
-        point_innerhtml = lxml.etree.tostring(point_td).decode()
-        # print point_innerhtml
-        point_pattern = re.compile('([0-9,]+)pt')
-        point_match_obj = point_pattern.search(point_innerhtml)
-        if point_match_obj is not None:
-            point_num = int(point_match_obj.group(1).replace(',',''))
-
-    unlimited = ('読み放題で読む' in result.text)
-    # try:
-    #     # upsell_button_announce = 
-    #     product_lxml.get_element_by_id('upsell-button-announce')
-    #     # if upsell_button_announce is not None:
-    #     sys.stderr.write("[Info] unlimited!\n")
-    #     input()
-    #     price_num = - price_num
-    #     point_num = - point_num
-    # except KeyError:
-    #     input("not unlimited")
-    #     pass
-
-    return (price_num, point_num, unlimited)
 
 def main():
     amazon_cookie = os.environ.get("AMAZON_COOKIE")
@@ -305,8 +226,9 @@ def main():
     pg_conn = psycopg2.connect(pg_url)
     pg_cur = pg_conn.cursor()
     kindle_price_data = pg_init_json(pg_cur, table_name, key_name)
-
-    # item_ary = get_wish_list(amazon_sess, list_id)
+    # pg_cur.close()
+    # pg_conn.commit()
+    # pg_conn.close()
 
     messages = []
     kindle_price_data_new = {}
@@ -342,11 +264,12 @@ def main():
 
     amazon_sess.close()
 
-    pg_update_json(pg_cur, table_name, key_name, kindle_price_data_new)
-
     if len(messages)>0:
         send_mail("<br />\n".join(messages), "Update of Kindle Price")
-    
+
+    # pg_conn = psycopg2.connect(pg_url)
+    # pg_cur = pg_conn.cursor()
+    pg_update_json(pg_cur, table_name, key_name, kindle_price_data_new)    
     pg_cur.close()
     pg_conn.commit()
     pg_conn.close()
