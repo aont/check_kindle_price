@@ -25,7 +25,7 @@ import sendgrid
 import sendgrid.helpers
 
 sleep_duration = 5
-max_try = 3
+max_try = 1
 
 AMAZON_CO_JP='https://www.amazon.co.jp/'
 amazon_headers = {
@@ -208,7 +208,8 @@ def check_amazon(sess, dp):
         except Exception as e:
             try_num += 1
             if try_num == max_try:
-                send_alert_mail(inspect.currentframe(), attach_html=result.content)
+                # todo: implement exception class to retain result.content
+                # send_alert_mail(inspect.currentframe(), attach_html=result.content)
                 raise e
             sys.stderr.write("[info] retry access in %ss\n" % sleep_duration)
             time.sleep(sleep_duration)
@@ -240,7 +241,7 @@ def main():
 
     messages = []
     # kindle_price_data_new = {}
-    check_progres = False
+    # check_progres = False
     exc = None
     exc_tb = None
     skip_list = []
@@ -288,14 +289,12 @@ def main():
                 "date": datetime_now.strftime("%Y/%m/%d %H:%M:%S") \
             }
             
-            check_progres = True
-            # if sigint_caught > 0:
-            #     break
         if len(skip_list)>0:
             sys.stderr.write("[info] skipped following since these are checked within %s minutes:\n%s\n" % (min_skip, ", ".join(skip_list)) )
     except Exception as e:
-        exc_tb = traceback.format_exc()
-        exc = e
+        if date_prev and ((date_prev + datetime.timedelta(hours=3)) < datetime_now):
+            exc_tb = traceback.format_exc()
+            exc = e
 
     amazon_sess.close()
 
@@ -309,7 +308,7 @@ def main():
     pg_conn.commit()
     pg_conn.close()
 
-    if (not check_progres) and exc:
+    if exc:
         raise exc
     elif exc:
         sys.stderr.write(exc_tb)
