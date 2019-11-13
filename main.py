@@ -25,7 +25,7 @@ import sendgrid
 import sendgrid.helpers
 
 sleep_duration = 5
-max_try = 1
+max_try = 3
 
 AMAZON_CO_JP='https://www.amazon.co.jp/'
 amazon_headers = {
@@ -124,6 +124,9 @@ def get_wish_list_page(sess, list_id, lastEvaluatedKey_ref):
             amazon_headers["referer"] = url
             result.raise_for_status()
 
+            if "この画像に見える文字を入力してください" in result.text:
+                raise Exception("captcha")
+
             product_lxml = lxml.html.fromstring(result.text)
             g_items = product_lxml.get_element_by_id('g-items')
             li_ary = g_items.cssselect('li')
@@ -150,15 +153,15 @@ def get_wish_list_page(sess, list_id, lastEvaluatedKey_ref):
                 yield {"dp": dp_id, 'title': item_title}
 
             break
-            
-        except Exception as e:
+
+        except requests.exceptions.RequestException as e:
             try_num += 1
             if try_num == max_try:
-                send_alert_mail(inspect.currentframe(), attach_html=result.content)
                 raise e
             sys.stderr.write("[info] retry access in %ss\n" % sleep_duration)
             time.sleep(sleep_duration)
             continue
+
 
 AMAZON_DP= urllib.parse.urljoin(AMAZON_CO_JP, '/dp/')
 def check_amazon(sess, dp):
@@ -171,7 +174,10 @@ def check_amazon(sess, dp):
             result = sess.get(product_uri, headers = amazon_headers)
             amazon_headers["referer"] = product_uri
             result.raise_for_status()
-            
+
+            if "この画像に見える文字を入力してください" in result.text:
+                raise Exception("captcha")
+
             product_lxml = lxml.html.fromstring(result.text)
             price_td_ary = product_lxml.cssselect('tr.kindle-price> td.a-color-price')
 
@@ -204,16 +210,14 @@ def check_amazon(sess, dp):
 
             return (price_num, point_num, unlimited)
             # break
-
-        except Exception as e:
+        except requests.exceptions.RequestException as e:
             try_num += 1
             if try_num == max_try:
-                # todo: implement exception class to retain result.content
-                # send_alert_mail(inspect.currentframe(), attach_html=result.content)
                 raise e
             sys.stderr.write("[info] retry access in %ss\n" % sleep_duration)
             time.sleep(sleep_duration)
             continue
+
         
 # sigint_caught = 0
 # def sigint_handler(signum, frame):
@@ -292,7 +296,7 @@ def main():
         if len(skip_list)>0:
             sys.stderr.write("[info] skipped following since these are checked within %s minutes:\n%s\n" % (min_skip, ", ".join(skip_list)) )
     except Exception as e:
-        if date_prev and ((date_prev + datetime.timedelta(hours=3)) < datetime_now):
+        if str(e) != "captcha" and date_prev and ((date_prev + datetime.timedelta(hours=3)) < datetime_now):
             exc_tb = traceback.format_exc()
             exc = e
 
@@ -310,8 +314,6 @@ def main():
 
     if exc:
         raise exc
-    elif exc:
-        sys.stderr.write(exc_tb)
 
 if __name__ == '__main__':
     main()
