@@ -243,6 +243,20 @@ def main():
     # pg_conn.commit()
     # pg_conn.close()
 
+    # get newest date
+    date_newest = None
+    for kindle_dp, kindle_item in kindle_price_data.items():
+        date_str = kindle_item.get("date")
+        if date_str:
+            date_datetime = datetime.datetime.strptime(date_str, "%Y/%m/%d %H:%M:%S")
+            if date_newest:
+                if date_datetime > date_newest:
+                    date_newest = date_datetime
+            else:
+                date_newest = date_datetime
+
+    datetime_now = datetime.datetime.now()
+
     messages = []
     # kindle_price_data_new = {}
     # check_progres = False
@@ -264,7 +278,7 @@ def main():
                 prev_unlimited = kindle_price_data[dp].get("unlimited")
                 date_prev = datetime.datetime.strptime(kindle_price_data[dp].get("date"), "%Y/%m/%d %H:%M:%S")
 
-            datetime_now = datetime.datetime.now()
+
             min_skip = 30
             if date_prev and ((date_prev + datetime.timedelta(minutes=min_skip)) > datetime_now):
                 skip_list.append(dp)
@@ -275,6 +289,7 @@ def main():
                 if len(messages)>0:
                     sys.stderr.write("[info] skipped following since these are checked within %s minutes:\n%s\n" % (min_skip, ", ".join(skip_list)) )
                     skip_list = []
+            # datetime_now = datetime.datetime.now()
             new_state = check_amazon(amazon_sess, dp)
             new_net_price = new_state[0] - new_state[1]
             unlimited = new_state[2]
@@ -292,13 +307,24 @@ def main():
                 "unlimited": new_state[2], \
                 "date": datetime_now.strftime("%Y/%m/%d %H:%M:%S") \
             }
+
+            date_newest = datetime_now
+            
+            # raise Exception("hoge")
             
         if len(skip_list)>0:
             sys.stderr.write("[info] skipped following since these are checked within %s minutes:\n%s\n" % (min_skip, ", ".join(skip_list)) )
     except Exception as e:
-        if str(e) != "captcha" and date_prev and ((date_prev + datetime.timedelta(hours=3)) < datetime_now):
+        sys.stderr.write("[warn] exception\n")
+        # sys.stderr.write("[debug] date_newest: %s\n" % date_newest)
+        # sys.stderr.write("[debug] datetime_now: %s\n" % datetime_now)
+        # newest_5h = (date_newest + datetime.timedelta(hours=5))
+        # sys.stderr.write("[debug] +5h: %s\n" % newest_5h)
+        if ( (not date_newest) or (date_newest and ((date_newest + datetime.timedelta(hours=3)) < datetime_now)) ):
             exc_tb = traceback.format_exc()
             exc = e
+        else:
+            sys.stderr.write(traceback.format_exc())
 
     amazon_sess.close()
 
