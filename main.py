@@ -243,9 +243,9 @@ def main():
     # pg_conn.commit()
     # pg_conn.close()
 
-    # get newest date
     date_newest = None
     for kindle_dp, kindle_item in kindle_price_data.items():
+        kindle_item["exists"] = False
         date_str = kindle_item.get("date")
         if date_str:
             date_datetime = datetime.datetime.strptime(date_str, "%Y/%m/%d %H:%M:%S")
@@ -284,6 +284,7 @@ def main():
                 skip_list.append(dp)
                 # sys.stderr.write("[info] skipping %s since this is checked within %s minutes\n" % (dp, min_skip) )
                 # sys.stderr.write("[info] %s %s\n" % (date_prev, datetime_now) )
+                kindle_price_data[dp]["exists"] = True
                 continue
             else:
                 if len(messages)>0:
@@ -305,15 +306,22 @@ def main():
                 "price": new_state[0], \
                 "point": new_state[1], \
                 "unlimited": new_state[2], \
-                "date": datetime_now.strftime("%Y/%m/%d %H:%M:%S") \
+                "date": datetime_now.strftime("%Y/%m/%d %H:%M:%S"), \
+                "exists": True \
             }
 
             date_newest = datetime_now
-            
-            # raise Exception("hoge")
-            
+
+        for kindle_dp, kindle_item in list(kindle_price_data.items()):
+            if not kindle_item.get("exists"):
+                del kindle_price_data[kindle_dp]
+            else:
+                del kindle_item["exists"]
+        # print(kindle_price_data)
+
         if len(skip_list)>0:
             sys.stderr.write("[info] skipped following since these are checked within %s minutes:\n%s\n" % (min_skip, ", ".join(skip_list)) )
+        
     except Exception as e:
         sys.stderr.write("[warn] exception\n")
         # sys.stderr.write("[debug] date_newest: %s\n" % date_newest)
