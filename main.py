@@ -183,7 +183,7 @@ def check_amazon(sess, dp):
 
             if len(price_td_ary) != 1:
                 raise Exception("amazon html format error")
- 
+
             price_td = price_td_ary[0]
             price_innerhtml = lxml.etree.tostring(price_td).decode()
 
@@ -251,13 +251,14 @@ def main():
     exc_tb = None
     min_skip = 40
     hour_alert = 3
+    max_check = 10
     if date_oldest and ((date_oldest + datetime.timedelta(minutes=min_skip)) > datetime_now):
         # pass
         sys.stderr.write("[info] exiting since checking is done recently\n")
     else:
         messages = []
         skip_list = []
-
+        num_checked = 0
         try:
             for item in get_wish_list(amazon_sess, list_id):
                 dp = item['dp']
@@ -272,13 +273,16 @@ def main():
                     prev_unlimited = kindle_price_data[dp].get("unlimited")
                     date_prev = datetime.datetime.strptime(kindle_price_data[dp].get("date"), "%Y/%m/%d %H:%M:%S")
 
-                if date_prev and ((date_prev + datetime.timedelta(minutes=min_skip)) > datetime_now):
+                if (num_checked >= max_check) or (date_prev and ((date_prev + datetime.timedelta(minutes=min_skip)) > datetime_now) ):
                     skip_list.append(dp)
-                    kindle_price_data[dp]["exists"] = True
+                    dp_data = kindle_price_data.get(dp)
+                    if dp_data:
+                        dp_data["exists"] = True
                     continue
                 else:
-                    if len(messages)>0:
-                        sys.stderr.write("[info] skipped following since these are checked within %s minutes:\n%s\n" % (min_skip, ", ".join(skip_list)) )
+                    if len(skip_list)>0:
+                        sys.stderr.write("[info] skipped following:\n%s\n" % (", ".join(skip_list)) )
+                        sys.stderr.write("[info] skipped following:\n%s\n" % (repr(skip_list)) )
                         skip_list = []
 
                 new_state = check_amazon(amazon_sess, dp)
@@ -299,7 +303,7 @@ def main():
                     "date": datetime_now.strftime("%Y/%m/%d %H:%M:%S"), \
                     "exists": True \
                 }
-
+                num_checked += 1
                 # date_oldest = datetime_now
 
             for kindle_dp, kindle_item in list(kindle_price_data.items()):
@@ -310,7 +314,7 @@ def main():
             # print(kindle_price_data)
 
             if len(skip_list)>0:
-                sys.stderr.write("[info] skipped following since these are checked within %s minutes:\n%s\n" % (min_skip, ", ".join(skip_list)) )
+                sys.stderr.write("[info] skipped following:\n%s\n" % (", ".join(skip_list)) )
             
         except Exception as e:
             sys.stderr.write("[warn] exception\n")
