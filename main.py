@@ -282,7 +282,6 @@ def main():
                 else:
                     if len(skip_list)>0:
                         sys.stderr.write("[info] skipped following:\n%s\n" % (", ".join(skip_list)) )
-                        sys.stderr.write("[info] skipped following:\n%s\n" % (repr(skip_list)) )
                         skip_list = []
 
                 new_state = check_amazon(amazon_sess, dp)
