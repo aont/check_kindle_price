@@ -249,16 +249,14 @@ def main():
 
     exc = None
     exc_tb = None
-    min_skip = 40
-    hour_alert = 3
-    max_check = 10
-    if date_oldest and ((date_oldest + datetime.timedelta(minutes=min_skip)) > datetime_now):
+    hour_skip = 2
+    hour_alert = 6
+    if date_oldest and ((date_oldest + datetime.timedelta(hours=hour_skip)) > datetime_now):
         # pass
         sys.stderr.write("[info] exiting since checking is done recently\n")
     else:
         messages = []
         skip_list = []
-        num_checked = 0
         try:
             for item in get_wish_list(amazon_sess, list_id):
                 dp = item['dp']
@@ -273,7 +271,7 @@ def main():
                     prev_unlimited = kindle_price_data[dp].get("unlimited")
                     date_prev = datetime.datetime.strptime(kindle_price_data[dp].get("date"), "%Y/%m/%d %H:%M:%S")
 
-                if (num_checked >= max_check) or (date_prev and ((date_prev + datetime.timedelta(minutes=min_skip)) > datetime_now) ):
+                if (date_prev and ((date_prev + datetime.timedelta(hours=hour_skip)) > datetime_now) ):
                     skip_list.append(dp)
                     dp_data = kindle_price_data.get(dp)
                     if dp_data:
@@ -302,15 +300,12 @@ def main():
                     "date": datetime_now.strftime("%Y/%m/%d %H:%M:%S"), \
                     "exists": True \
                 }
-                num_checked += 1
-                # date_oldest = datetime_now
 
             for kindle_dp, kindle_item in list(kindle_price_data.items()):
                 if not kindle_item.get("exists"):
                     del kindle_price_data[kindle_dp]
                 else:
                     del kindle_item["exists"]
-            # print(kindle_price_data)
 
             if len(skip_list)>0:
                 sys.stderr.write("[info] skipped following:\n%s\n" % (", ".join(skip_list)) )
