@@ -294,9 +294,9 @@ def main():
                     sys.stderr.write("[info] skipped following:\n%s\n" % (", ".join(skip_list)) )
                     skip_list = []
 
-                prev_price = kpd_pair[1]
+                prev_price = kpd_item.get("price")
                 if prev_price:
-                    prev_net_price = kpd_item["price"] - kpd_item["point"]
+                    prev_net_price = prev_price - kpd_item["point"]
                     prev_unlimited = kpd_item.get("unlimited")
                 else:
                     prev_net_price = -1
