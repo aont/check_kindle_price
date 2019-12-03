@@ -283,8 +283,8 @@ def main():
             for kpd_pair in kpd_sort:
                 kpd_item = kpd_pair[1]
                 dp = kpd_pair[0]
+                item_title = kpd_item['title']
                 date_prev = datetime.datetime.strptime(kindle_price_data[dp].get("date"), "%Y/%m/%d %H:%M:%S")
-
 
                 if (check_cnt > max_check) or ((date_prev + datetime.timedelta(hours=hour_skip)) > datetime_now):
                     skip_list.append(dp)
