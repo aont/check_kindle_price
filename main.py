@@ -249,70 +249,81 @@ def main():
 
     exc = None
     exc_tb = None
-    hour_skip = 2
-    hour_alert = 6
+    hour_skip = 1
+    hour_alert = 3
+    max_check = 20
+    check_cnt = 0
     if date_oldest and ((date_oldest + datetime.timedelta(hours=hour_skip)) > datetime_now):
-        # pass
         sys.stderr.write("[info] exiting since checking is done recently\n")
     else:
         messages = []
         skip_list = []
-        try:
-            for item in get_wish_list(amazon_sess, list_id):
-                dp = item['dp']
-                item_title = item['title']
 
-                if dp not in kindle_price_data:
+        for item in get_wish_list(amazon_sess, list_id):
+            dp = item['dp']
+            item_title = item['title']
+            kpd_dp = kindle_price_data.get(dp)
+            if kpd_dp:
+                kpd_dp["exists"] = True
+            else:
+                kindle_price_data[dp] = {
+                    "title": item_title,
+                    "exists": True,
+                    "date": "2000/1/1 00:00:00"
+                }
+
+        for dp, kpd_dp in tuple(kindle_price_data.items()):
+            if not kpd_dp["exists"]:
+                del kindle_price_data[dp]
+            else:
+                del kpd_dp["exists"]
+
+        kpd_sort = sorted(kindle_price_data.items(), key=lambda x: datetime.datetime.strptime(x[1]["date"], "%Y/%m/%d %H:%M:%S"))
+        try:
+            for kpd_pair in kpd_sort:
+                kpd_item = kpd_pair[1]
+                dp = kpd_pair[0]
+                date_prev = datetime.datetime.strptime(kindle_price_data[dp].get("date"), "%Y/%m/%d %H:%M:%S")
+
+
+                if (check_cnt > max_check) or ((date_prev + datetime.timedelta(hours=hour_skip)) > datetime_now):
+                    skip_list.append(dp)
+                    continue
+
+                elif len(skip_list)>0:
+                    sys.stderr.write("[info] skipped following:\n%s\n" % (", ".join(skip_list)) )
+                    skip_list = []
+
+                prev_price = kpd_pair[1]
+                if prev_price:
+                    prev_net_price = kpd_item["price"] - kpd_item["point"]
+                    prev_unlimited = kpd_item.get("unlimited")
+                else:
                     prev_net_price = -1
                     prev_unlimited = False
-                    date_prev = None
-                else:
-                    prev_net_price = kindle_price_data[dp]["price"] - kindle_price_data[dp]["point"]
-                    prev_unlimited = kindle_price_data[dp].get("unlimited")
-                    date_prev = datetime.datetime.strptime(kindle_price_data[dp].get("date"), "%Y/%m/%d %H:%M:%S")
-
-                if (date_prev and ((date_prev + datetime.timedelta(hours=hour_skip)) > datetime_now) ):
-                    skip_list.append(dp)
-                    dp_data = kindle_price_data.get(dp)
-                    if dp_data:
-                        dp_data["exists"] = True
-                    continue
-                else:
-                    if len(skip_list)>0:
-                        sys.stderr.write("[info] skipped following:\n%s\n" % (", ".join(skip_list)) )
-                        skip_list = []
 
                 new_state = check_amazon(amazon_sess, dp)
                 new_net_price = new_state[0] - new_state[1]
                 unlimited = new_state[2]
                 sys.stderr.write('[info] price=%s point=%s net_price=%s unlimited=%s\n' % (new_state[0], new_state[1], new_net_price, unlimited))
 
-                if new_net_price != prev_net_price or prev_unlimited != unlimited:
+                if (new_net_price != prev_net_price) or (prev_unlimited != unlimited):
                     mes = "<a href=\"%s\">%s</a> %s %s<- %s" % (urllib.parse.urljoin(AMAZON_DP, dp), item_title, new_net_price, ("unlimited " if unlimited else ""), prev_net_price)
                     messages.append(mes)
                     sys.stderr.write("[info] %s\n" %mes)
                 
-                kindle_price_data[dp] = { \
-                    "title": item_title, \
-                    "price": new_state[0], \
-                    "point": new_state[1], \
-                    "unlimited": new_state[2], \
-                    "date": datetime_now.strftime("%Y/%m/%d %H:%M:%S"), \
-                    "exists": True \
-                }
-
-            for kindle_dp, kindle_item in list(kindle_price_data.items()):
-                if not kindle_item.get("exists"):
-                    del kindle_price_data[kindle_dp]
-                else:
-                    del kindle_item["exists"]
+                kpd_item["price"] = new_state[0]
+                kpd_item["point"] = new_state[1]
+                kpd_item["unlimited"] = new_state[2]
+                kpd_item["date"] = datetime_now.strftime("%Y/%m/%d %H:%M:%S")
+                check_cnt += 1
 
             if len(skip_list)>0:
                 sys.stderr.write("[info] skipped following:\n%s\n" % (", ".join(skip_list)) )
             
         except Exception as e:
             sys.stderr.write("[warn] exception\n")
-            if ( (not date_oldest) or (date_oldest and ((date_oldest + datetime.timedelta(hours=hour_alert)) < datetime_now)) ):
+            if (date_oldest and ((date_oldest + datetime.timedelta(hours=hour_alert)) < datetime_now)):
                 exc_tb = traceback.format_exc()
                 exc = e
             else:
