@@ -129,6 +129,7 @@ def get_wish_list_page(sess, list_id, lastEvaluatedKey_ref):
 
             product_lxml = lxml.html.fromstring(result.text)
             g_items = product_lxml.get_element_by_id('g-items')
+            # may raise Exception
             li_ary = g_items.cssselect('li')
 
             lastEvaluatedKey_elems = product_lxml.cssselect('input.lastEvaluatedKey')
@@ -154,7 +155,8 @@ def get_wish_list_page(sess, list_id, lastEvaluatedKey_ref):
 
             break
 
-        except requests.exceptions.RequestException as e:
+        except Exception as e:
+            # requests.exceptions.RequestException
             try_num += 1
             if try_num == max_try:
                 raise e
