@@ -261,27 +261,28 @@ def main():
         messages = []
         skip_list = []
 
-        for item in get_wish_list(amazon_sess, list_id):
-            dp = item['dp']
-            item_title = item['title']
-            kpd_dp = kindle_price_data.get(dp)
-            if kpd_dp:
-                kpd_dp["exists"] = True
-            else:
-                kindle_price_data[dp] = {
-                    "title": item_title,
-                    "exists": True,
-                    "date": "2000/1/1 00:00:00"
-                }
-
-        for dp, kpd_dp in tuple(kindle_price_data.items()):
-            if not kpd_dp["exists"]:
-                del kindle_price_data[dp]
-            else:
-                del kpd_dp["exists"]
-
-        kpd_sort = sorted(kindle_price_data.items(), key=lambda x: datetime.datetime.strptime(x[1]["date"], "%Y/%m/%d %H:%M:%S"))
         try:
+            for item in get_wish_list(amazon_sess, list_id):
+                dp = item['dp']
+                item_title = item['title']
+                kpd_dp = kindle_price_data.get(dp)
+                if kpd_dp:
+                    kpd_dp["exists"] = True
+                else:
+                    kindle_price_data[dp] = {
+                        "title": item_title,
+                        "exists": True,
+                        "date": "2000/1/1 00:00:00"
+                    }
+
+            for dp, kpd_dp in tuple(kindle_price_data.items()):
+                if not kpd_dp["exists"]:
+                    del kindle_price_data[dp]
+                else:
+                    del kpd_dp["exists"]
+
+            kpd_sort = sorted(kindle_price_data.items(), key=lambda x: datetime.datetime.strptime(x[1]["date"], "%Y/%m/%d %H:%M:%S"))
+
             for kpd_pair in kpd_sort:
                 kpd_item = kpd_pair[1]
                 dp = kpd_pair[0]
