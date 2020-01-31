@@ -251,9 +251,10 @@ def main():
 
     exc = None
     exc_tb = None
-    hour_skip = 1
-    hour_alert = 3
-    max_check = 20
+    hour_skip = int(os.environ.get('SKIP_DURATION_H', default="4"))
+    hour_alert = int(os.environ.get('ALERT_DURATION_H', default="8"))
+    max_check = int(os.environ.get('MAX_CHECK', default="20"))
+
     check_cnt = 0
     if date_oldest and ((date_oldest + datetime.timedelta(hours=hour_skip)) > datetime_now):
         sys.stderr.write("[info] exiting since checking is done recently\n")
