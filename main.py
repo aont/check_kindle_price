@@ -194,7 +194,7 @@ def check_amazon(sess, dp):
 
 if __name__ == '__main__':
 
-    sleep_duration = 3
+    sleep_duration = 5
     max_try = 3
 
     AMAZON_CO_JP='https://www.amazon.co.jp/'
@@ -346,7 +346,8 @@ def main_check_price():
             sys.stderr.write(traceback.format_exc())            
         except Exception as e:
             sys.stderr.write("[warn] exception\n")
-            if (date_oldest>init_date and ((date_oldest + hour_alert) < datetime_now)):
+            datetime_now = datetime.datetime.now()
+            if (date_oldest>init_date) and ((date_oldest + hour_alert) < datetime_now):
                 exc_tb = traceback.format_exc()
                 exc = e
             else:
