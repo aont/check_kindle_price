@@ -132,6 +132,7 @@ def get_wish_list_page(sess, list_id, last_evaluated_key_ref):
             try_num += 1
             if try_num == max_try:
                 raise e
+            sys.stderr.write(traceback.format_exc())
             sys.stderr.write("[info] retry\n")
             continue
 
@@ -184,10 +185,12 @@ def check_amazon(sess, dp):
 
             return (price_num, point_num, unlimited)
             # break
-        except requests.exceptions.RequestException as e:
+        except Exception as e:
+            # requests.exceptions.RequestException
             try_num += 1
             if try_num == max_try:
                 raise e
+            sys.stderr.write(traceback.format_exc())  
             sys.stderr.write("[info] retry\n")
             continue
 
