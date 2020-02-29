@@ -219,7 +219,8 @@ if __name__ == '__main__':
     list_id = os.environ['AMAZON_WISH_LIST_ID']
     pg_url = os.environ['DATABASE_URL']
     hour_skip = int(os.environ.get('SKIP_DURATION_H', default="4"))
-    hour_alert = int(os.environ.get('ALERT_DURATION_H', default="8"))
+    hour_alert_str = os.environ.get('ALERT_DURATION_H', default="8")
+    hour_alert = datetime.timedelta(hours=int(hour_alert_str))
     max_check = int(os.environ.get('MAX_CHECK', default="3"))
     generic_text_data_name = 'generic_text_data'
     ckp_state_name = 'ckp_state'
@@ -248,7 +249,6 @@ def main_update_list():
         try:
             sys.stderr.write("[info] last_evaluated_key: %s\n" % last_evaluated_key)
             for dp_id, item_title in get_wish_list_page(amazon_sess, list_id, last_evaluated_key_ref):
-                # sys.stderr.write("[info] dp=%s\n" % dp_id)
                 wish_list[dp_id] = item_title
                 if dp_id not in kindle_price_data:
                     kindle_price_data[dp_id] = {
@@ -302,9 +302,6 @@ def main_check_price():
     kindle_price_data = pg_init_json(pg_cur, generic_text_data_name, kindle_price_name)
 
     exc = None
-    exc_tb = None
-    hour_alert_str = int(os.environ.get('ALERT_DURATION_H', default="8"))
-    hour_alert = datetime.timedelta(hours=hour_alert_str)
     date_oldest = None
     for kindle_dp, kindle_item in kindle_price_data.items():
         date_str = kindle_item.get("date")
@@ -315,7 +312,6 @@ def main_check_price():
                     date_oldest = date_datetime
             else:
                 date_oldest = date_datetime
-
 
     messages = []
     skip_list = []
@@ -358,7 +354,6 @@ def main_check_price():
         sys.stderr.write("[warn] exception\n")
         datetime_now = datetime.datetime.now()
         if (date_oldest>init_date) and ((date_oldest + hour_alert) < datetime_now):
-            exc_tb = traceback.format_exc()
             exc = e
         else:
             sys.stderr.write(traceback.format_exc())
