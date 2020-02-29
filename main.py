@@ -76,7 +76,6 @@ def pg_update_json(pg_cur, table_name, kindle_price_key_name, pg_data):
     return pg_execute(pg_cur, 'update %s set value = %%s where key = %%s;' % table_name, [json.dumps(pg_data, ensure_ascii=False), kindle_price_key_name])
 
 
-
 def get_wish_list_page(sess, list_id, last_evaluated_key_ref):
 
     last_evaluated_key = last_evaluated_key_ref[0]
@@ -92,7 +91,7 @@ def get_wish_list_page(sess, list_id, last_evaluated_key_ref):
             amazon_headers["referer"] = url
             result.raise_for_status()
 
-            if "この画像に見える文字を入力してください" in result.text:
+            if b"Amazon CAPTCHA" in result.content:
                 raise Exception("captcha")
 
             product_lxml = lxml.html.fromstring(result.text)
@@ -145,7 +144,7 @@ def check_amazon(sess, dp):
             amazon_headers["referer"] = product_uri
             result.raise_for_status()
 
-            if "この画像に見える文字を入力してください" in result.text:
+            if b"Amazon CAPTCHA" in result.content:
                 raise Exception("captcha")
 
             product_lxml = lxml.html.fromstring(result.text)
