@@ -196,7 +196,7 @@ def check_amazon(sess, dp):
 if __name__ == '__main__':
 
     sleep_duration = 5
-    max_try = 3
+    max_try = int(os.environ.get('MAX_TRY', default="5"))
 
     AMAZON_CO_JP='https://www.amazon.co.jp/'
     AMAZON_LIST=urllib.parse.urljoin(AMAZON_CO_JP, '/hz/wishlist/ls/')
