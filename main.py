@@ -14,6 +14,7 @@ import base64
 import inspect
 import urllib.parse
 import signal
+import itertools
 
 import requests
 import psycopg2
@@ -196,6 +197,7 @@ if __name__ == '__main__':
 
     sleep_duration = 5
     max_try = 3
+    max_check = 10
 
     AMAZON_CO_JP='https://www.amazon.co.jp/'
     AMAZON_LIST=urllib.parse.urljoin(AMAZON_CO_JP, '/hz/wishlist/ls/')
@@ -241,9 +243,9 @@ def main_update_list():
     if wish_list is None:
         wish_list = {}
         ckp_state["wish_list"] = wish_list
-
+    exc = None
     update_complete = False
-    while True:
+    for nc in range(max_check):
         try:
             sys.stderr.write("[info] last_evaluated_key: %s\n" % last_evaluated_key)
             for dp_id, item_title in get_wish_list_page(amazon_sess, list_id, last_evaluated_key_ref):
@@ -263,8 +265,14 @@ def main_update_list():
             break
         except Exception as e:
             sys.stderr.write("[warn] exception\n")
-            sys.stderr.write(traceback.format_exc())
-            break
+            check_date = ckp_state.get("check_date")
+            datetime_now = datetime.datetime.now()
+            if (check_date is None) or ((check_date+hour_alert)<datetime_now):
+                exc = e
+                break
+            else:
+                sys.stderr.write(traceback.format_exc())
+                break
 
     ckp_state["last_evaluated_key"] = last_evaluated_key
     if update_complete:
@@ -272,7 +280,9 @@ def main_update_list():
         for dp, kpd_item in tuple(kindle_price_data.items()):
             if dp not in wish_list:
                 del kindle_price_data[dp]
-    
+        datetime_now = datetime.datetime.now()
+        ckp_state["check_date"] = datetime_now.strftime(date_format)
+
     pg_update_json(pg_cur, generic_text_data_name, ckp_state_name, ckp_state)
     pg_update_json(pg_cur, generic_text_data_name, kindle_price_name, kindle_price_data)
 
@@ -280,6 +290,8 @@ def main_update_list():
     pg_conn.commit()
     pg_conn.close()
 
+    if exc:
+        raise Exception("reraise exception") from exc
     return 0
 
 def main_check_price():
@@ -304,67 +316,65 @@ def main_check_price():
             else:
                 date_oldest = date_datetime
 
-    if True:
-        messages = []
-        skip_list = []
 
-        try:
-            kpd_sort = sorted(kindle_price_data.items(), key=lambda x: datetime.datetime.strptime(x[1]["date"], "%Y/%m/%d %H:%M:%S"))
+    messages = []
+    skip_list = []
 
-            for kpd_pair in kpd_sort:
-                kpd_item = kpd_pair[1]
-                dp = kpd_pair[0]
+    try:
+        kpd_sort = sorted(kindle_price_data.items(), key=lambda x: datetime.datetime.strptime(x[1]["date"], "%Y/%m/%d %H:%M:%S"))
 
-                prev_price = kpd_item.get("price")
-                item_title = kpd_item.get("title")
-                if prev_price:
-                    prev_net_price = prev_price - kpd_item["point"]
-                    prev_unlimited = kpd_item.get("unlimited")
-                else:
-                    prev_net_price = -1
-                    prev_unlimited = False
+        for dp, kpd_item in itertools.islice(kpd_sort, max_check):
 
-                new_state = check_amazon(amazon_sess, dp)
-                new_net_price = new_state[0] - new_state[1]
-                unlimited = new_state[2]
-                sys.stderr.write('[info] price=%s point=%s net_price=%s unlimited=%s\n' % (new_state[0], new_state[1], new_net_price, unlimited))
-
-                if (new_net_price != prev_net_price) or (prev_unlimited != unlimited):
-                    mes = "<a href=\"%s\">%s</a> %s %s<- %s" % (urllib.parse.urljoin(AMAZON_DP, dp), item_title, new_net_price, ("unlimited " if unlimited else ""), prev_net_price)
-                    messages.append(mes)
-                    sys.stderr.write("[info] %s\n" %mes)
-                
-                datetime_now = datetime.datetime.now()
-                kpd_item["price"] = new_state[0]
-                kpd_item["point"] = new_state[1]
-                kpd_item["unlimited"] = new_state[2]
-                kpd_item["date"] = datetime_now.strftime(date_format)
-
-            if len(skip_list)>0:
-                sys.stderr.write("[info] skipped following:\n%s\n" % (", ".join(skip_list)) )
-        except KeyboardInterrupt as e:
-            sys.stderr.write(traceback.format_exc())            
-        except Exception as e:
-            sys.stderr.write("[warn] exception\n")
-            datetime_now = datetime.datetime.now()
-            if (date_oldest>init_date) and ((date_oldest + hour_alert) < datetime_now):
-                exc_tb = traceback.format_exc()
-                exc = e
+            prev_price = kpd_item.get("price")
+            item_title = kpd_item.get("title")
+            if prev_price:
+                prev_net_price = prev_price - kpd_item["point"]
+                prev_unlimited = kpd_item.get("unlimited")
             else:
-                sys.stderr.write(traceback.format_exc())
+                prev_net_price = -1
+                prev_unlimited = False
 
-        amazon_sess.close()
+            new_state = check_amazon(amazon_sess, dp)
+            new_net_price = new_state[0] - new_state[1]
+            unlimited = new_state[2]
+            sys.stderr.write('[info] price=%s point=%s net_price=%s unlimited=%s\n' % (new_state[0], new_state[1], new_net_price, unlimited))
 
-        if len(messages)>0:
-            send_mail("<br />\n".join(messages), "Update of Kindle Price")
-        pg_update_json(pg_cur, generic_text_data_name, kindle_price_name, kindle_price_data)
+            if (new_net_price != prev_net_price) or (prev_unlimited != unlimited):
+                mes = "<a href=\"%s\">%s</a> %s %s<- %s" % (urllib.parse.urljoin(AMAZON_DP, dp), item_title, new_net_price, ("unlimited " if unlimited else ""), prev_net_price)
+                messages.append(mes)
+                sys.stderr.write("[info] %s\n" %mes)
+            
+            datetime_now = datetime.datetime.now()
+            kpd_item["price"] = new_state[0]
+            kpd_item["point"] = new_state[1]
+            kpd_item["unlimited"] = new_state[2]
+            kpd_item["date"] = datetime_now.strftime(date_format)
+
+        if len(skip_list)>0:
+            sys.stderr.write("[info] skipped following:\n%s\n" % (", ".join(skip_list)) )
+    except KeyboardInterrupt as e:
+        sys.stderr.write(traceback.format_exc())            
+    except Exception as e:
+        sys.stderr.write("[warn] exception\n")
+        datetime_now = datetime.datetime.now()
+        if (date_oldest>init_date) and ((date_oldest + hour_alert) < datetime_now):
+            exc_tb = traceback.format_exc()
+            exc = e
+        else:
+            sys.stderr.write(traceback.format_exc())
+
+    amazon_sess.close()
+
+    if len(messages)>0:
+        send_mail("<br />\n".join(messages), "Update of Kindle Price")
+    pg_update_json(pg_cur, generic_text_data_name, kindle_price_name, kindle_price_data)
     
     pg_cur.close()
     pg_conn.commit()
     pg_conn.close()
 
     if exc:
-        raise exc
+        raise Exception("reraise exception") from exc
 
     return 0
 
@@ -375,4 +385,5 @@ if __name__ == '__main__':
     elif method == "update_list":
         sys.exit(main_update_list())
     else:
-        sys.stderr.write("[error] unknown method %s" % method)
+        sys.stderr.write("[error] unknown method %s\n" % method)
+        sys.exit(-1)
