@@ -25,18 +25,13 @@ import cssselect
 import sendgrid
 import sendgrid.helpers
 
-
-def send_alert_mail(frame, attach_html):
-    cf = frame.f_back
-    send_mail("Exception: %s:%s:%s" % (cf.f_code.co_filename, cf.f_code.co_name, cf.f_lineno), "Check Kindle Price: Alert",  attach_html=attach_html)
-
 def send_mail(message_str, subject, attach_html=None):
     sys.stderr.write("[info] mailing via sendgrid\n")
     sg_username = os.environ["SENDGRID_USERNAME"]
     sg_recipient = os.environ["SENDGRID_RECIPIENT"]
     sg_apikey = os.environ["SENDGRID_APIKEY"]
     sg_client = sendgrid.SendGridAPIClient(sg_apikey)
-    
+
     sg_from = sendgrid.Email(name="Check Kindle Price", email=sg_username)
     message = sendgrid.Mail(from_email=sg_from, to_emails=[sg_recipient], subject=subject, html_content=message_str)
     message.reply_to = sg_recipient
@@ -68,7 +63,7 @@ def pg_init_json(pg_cur, table_name, kindle_price_key_name):
 
     pg_execute(pg_cur, 'select value from %s where key=%%s;' % table_name, [kindle_price_key_name])
     pg_result = pg_cur.fetchone()
-    
+
     if pg_result is None:
         pg_execute(pg_cur, 'insert into %s VALUES (%%s, %%s);' % table_name, [kindle_price_key_name, "{}"])
         pg_data = {}
@@ -157,6 +152,7 @@ def check_amazon(sess, dp):
             price_td_ary = product_lxml.cssselect('tr.kindle-price> td.a-color-price')
 
             if len(price_td_ary) != 1:
+                send_mail("html format error", "Check Kindle Price: Alert", result.content)
                 raise Exception("amazon html format error")
 
             price_td = price_td_ary[0]
@@ -187,10 +183,11 @@ def check_amazon(sess, dp):
             # break
         except Exception as e:
             # requests.exceptions.RequestException
+            tb = traceback.format_exc()
             try_num += 1
             if try_num == max_try:
                 raise e
-            sys.stderr.write(traceback.format_exc())  
+            sys.stderr.write(tb)
             sys.stderr.write("[info] retry\n")
             continue
 
@@ -235,7 +232,7 @@ if __name__ == '__main__':
 
 def main_update_list():
 
-    amazon_sess = requests.session()    
+    amazon_sess = requests.session()
     pg_conn = psycopg2.connect(pg_url)
     pg_cur = pg_conn.cursor()
     kindle_price_data = pg_init_json(pg_cur, 'generic_text_data', 'kindle_price')
@@ -263,7 +260,7 @@ def main_update_list():
                 update_complete = True
                 break
         except KeyboardInterrupt as e:
-            sys.stderr.write(traceback.format_exc())  
+            sys.stderr.write(traceback.format_exc())
             break
         except Exception as e:
             sys.stderr.write("[warn] exception\n")
@@ -299,7 +296,7 @@ def main_update_list():
 
 def main_check_price():
 
-    amazon_sess = requests.session()    
+    amazon_sess = requests.session()
     pg_conn = psycopg2.connect(pg_url)
     pg_cur = pg_conn.cursor()
     kindle_price_data = pg_init_json(pg_cur, generic_text_data_name, kindle_price_name)
@@ -342,7 +339,7 @@ def main_check_price():
                 mes = "<a href=\"%s\">%s</a> %s %s<- %s" % (urllib.parse.urljoin(AMAZON_DP, dp), item_title, new_net_price, ("unlimited " if unlimited else ""), prev_net_price)
                 messages.append(mes)
                 sys.stderr.write("[info] %s\n" %mes)
-            
+
             datetime_now = datetime.datetime.now()
             kpd_item["price"] = new_state[0]
             kpd_item["point"] = new_state[1]
@@ -352,7 +349,7 @@ def main_check_price():
         if len(skip_list)>0:
             sys.stderr.write("[info] skipped following:\n%s\n" % (", ".join(skip_list)) )
     except KeyboardInterrupt as e:
-        sys.stderr.write(traceback.format_exc())            
+        sys.stderr.write(traceback.format_exc())
     except Exception as e:
         sys.stderr.write("[warn] exception\n")
         datetime_now = datetime.datetime.now()
@@ -366,7 +363,7 @@ def main_check_price():
     if len(messages)>0:
         send_mail("<br />\n".join(messages), "Update of Kindle Price")
     pg_update_json(pg_cur, generic_text_data_name, kindle_price_name, kindle_price_data)
-    
+
     pg_cur.close()
     pg_conn.commit()
     pg_conn.close()
