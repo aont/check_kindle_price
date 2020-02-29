@@ -94,7 +94,7 @@ def get_wish_list_page(sess, list_id, last_evaluated_key_ref):
             if b"Amazon CAPTCHA" in result.content:
                 raise Exception("captcha")
 
-            product_lxml = lxml.html.fromstring(result.text)
+            product_lxml = lxml.html.fromstring(result.content)
             g_items = product_lxml.get_element_by_id('g-items')
             # may raise Exception
             li_ary = g_items.cssselect('li')
@@ -147,7 +147,7 @@ def check_amazon(sess, dp):
             if b"Amazon CAPTCHA" in result.content:
                 raise Exception("captcha")
 
-            product_lxml = lxml.html.fromstring(result.text)
+            product_lxml = lxml.html.fromstring(result.content)
             price_td_ary = product_lxml.cssselect('tr.kindle-price> td.a-color-price')
 
             if len(price_td_ary) != 1:
@@ -176,7 +176,7 @@ def check_amazon(sess, dp):
                 if point_match_obj is not None:
                     point_num = int(point_match_obj.group(1).replace(',',''))
 
-            unlimited = ('読み放題で読む' in result.text)
+            unlimited = (b'a-icon-kindle-unlimited' in result.content)
 
             return (price_num, point_num, unlimited)
             # break
