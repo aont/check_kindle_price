@@ -204,7 +204,7 @@ if __name__ == '__main__':
     amazon_headers = {
         'authority': 'www.amazon.co.jp',
         'upgrade-insecure-requests': '1',
-        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.103 Safari/537.36',
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36',
         'dnt': '1',
         'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3',
         'accept-encoding': 'identity',
@@ -264,7 +264,8 @@ def main_update_list():
             break
         except Exception as e:
             sys.stderr.write("[warn] exception\n")
-            check_date = ckp_state.get("check_date")
+            check_date_str = ckp_state.get("check_date")
+            check_date = datetime.datetime.strptime(check_date_str, date_format)
             datetime_now = datetime.datetime.now()
             if (check_date is None) or ((check_date+hour_alert)<datetime_now):
                 exc = e
@@ -290,7 +291,7 @@ def main_update_list():
     pg_conn.close()
 
     if exc:
-        raise Exception("reraise exception") from exc
+        raise exc
     return 0
 
 def main_check_price():
@@ -373,7 +374,7 @@ def main_check_price():
     pg_conn.close()
 
     if exc:
-        raise Exception("reraise exception") from exc
+        raise exc
 
     return 0
 
