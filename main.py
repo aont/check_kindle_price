@@ -197,7 +197,6 @@ if __name__ == '__main__':
 
     sleep_duration = 5
     max_try = 3
-    max_check = 10
 
     AMAZON_CO_JP='https://www.amazon.co.jp/'
     AMAZON_LIST=urllib.parse.urljoin(AMAZON_CO_JP, '/hz/wishlist/ls/')
@@ -221,7 +220,7 @@ if __name__ == '__main__':
     pg_url = os.environ['DATABASE_URL']
     hour_skip = int(os.environ.get('SKIP_DURATION_H', default="4"))
     hour_alert = int(os.environ.get('ALERT_DURATION_H', default="8"))
-    # max_check = int(os.environ.get('MAX_CHECK', default="20"))
+    max_check = int(os.environ.get('MAX_CHECK', default="3"))
     generic_text_data_name = 'generic_text_data'
     ckp_state_name = 'ckp_state'
     kindle_price_name = 'kindle_price'
