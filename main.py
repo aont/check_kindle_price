@@ -131,6 +131,7 @@ def get_wish_list_page(sess, list_id, last_evaluated_key_ref):
             continue
 
 
+price_pattern = re.compile('&#65509;\\s*([0-9,]+)')
 
 def check_amazon(sess, dp):
     sys.stderr.write('[info] check_amazon dp=%s\n' % dp)
@@ -149,15 +150,15 @@ def check_amazon(sess, dp):
 
             product_lxml = lxml.html.fromstring(result.content)
             price_td_ary = product_lxml.cssselect('tr.kindle-price> td.a-color-price')
+            # price_td_ary = product_lxml.cssselect('.swatchElement.selected .a-color-price')
 
             if len(price_td_ary) != 1:
-                send_mail("html format error", "Check Kindle Price: Alert", result.content)
+                # send_mail("html format error", "Check Kindle Price: Alert", result.content)
                 raise Exception("amazon html format error")
 
             price_td = price_td_ary[0]
             price_innerhtml = lxml.etree.tostring(price_td).decode()
 
-            price_pattern = re.compile('&#65509;\\s*([0-9,]+)')
             price_match_obj = price_pattern.search(price_innerhtml)
             if price_match_obj is not None:
                 price_num = int(price_match_obj.group(1).replace(',',''))
@@ -205,10 +206,7 @@ if __name__ == '__main__':
         'upgrade-insecure-requests': '1',
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36',
         'dnt': '1',
-        'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3',
-        'accept-encoding': 'identity',
         'accept-language': 'ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7',
-        'referer': AMAZON_CO_JP,
     }
 
     amazon_cookie = os.environ.get("AMAZON_COOKIE")
@@ -256,6 +254,7 @@ def main_update_list():
                     }
             last_evaluated_key = last_evaluated_key_ref[0]
             if last_evaluated_key is None:
+                sys.stderr.write("[info] update complete\n")
                 update_complete = True
                 break
         except KeyboardInterrupt as e:
