@@ -321,7 +321,7 @@ def main_check_price():
 
             prev_price = kpd_item.get("price")
             item_title = kpd_item.get("title")
-            if prev_price:
+            if prev_price is not None:
                 prev_net_price = prev_price - kpd_item["point"]
                 prev_unlimited = kpd_item.get("unlimited")
             else:
