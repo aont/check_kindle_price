@@ -156,12 +156,19 @@ def check_amazon(sess, dp):
                 raise Exception("captcha")
 
             product_lxml = lxml.html.fromstring(result.content)
-            price_td_ary = product_lxml.cssselect('tr.kindle-price> td.a-color-price')
-            # price_td_ary = product_lxml.cssselect('.swatchElement.selected .a-color-price')
 
-            if len(price_td_ary) != 1:
-                # send_mail("html format error", "Check Kindle Price: Alert", result.content)
-                raise Exception("amazon html format error")
+            ## sanity check
+            try:
+                product_lxml.get_element_by_id("title")
+            except KeyError as e:
+                raise Exception("title not found") from e
+
+            price_td_ary = product_lxml.cssselect('tr.kindle-price > td.a-color-price')
+            # price_td_ary = product_lxml.cssselect('.swatchElement.selected .a-color-price')
+            if len(price_td_ary) == 0:
+                raise Exception("could not found price")
+            elif len(price_td_ary) > 1:
+                raise Exception("found multiple %s price elements" % len(price_td_ary))
 
             price_td = price_td_ary[0]
             price_innerhtml = price_td.text_content()
@@ -171,16 +178,15 @@ def check_amazon(sess, dp):
                 price_num = int(price_match_obj.group(1).replace(',',''))
             else:
                 raise Exception("price text error %s" % repr(price_innerhtml))
-                # print "%s yen" % price_num
 
-            point_num = 0
             point_td_ary = product_lxml.cssselect('tr.loyalty-points > td.a-align-bottom')
             if len(point_td_ary) > 1:
-                raise Exception("unexpected")
+                raise Exception("%s point elements found" % len(point_td_ary))
+            elif len(point_td_ary) == 0:
+                point_num = 0
             elif len(point_td_ary) == 1:
                 point_td = point_td_ary[0]
                 point_innerhtml = point_td.text_content()
-                # sys.stderr.write("[debug]point_innerhtml=%s\n" % point_innerhtml)
                 point_match_obj = point_pattern.search(point_innerhtml)
                 if point_match_obj:
                     point_num = int(point_match_obj.group(1).replace(',',''))
