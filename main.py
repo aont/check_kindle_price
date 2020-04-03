@@ -152,6 +152,7 @@ def check_amazon(sess, dp):
             amazon_headers["referer"] = product_uri
             result.raise_for_status()
 
+            # check captcha
             if b"Amazon CAPTCHA" in result.content:
                 raise Exception("captcha")
 
@@ -161,14 +162,24 @@ def check_amazon(sess, dp):
             try:
                 product_lxml.get_element_by_id("title")
             except KeyError as e:
-                raise Exception("title not found") from e
+                raise Exception("unable to find title") from e
+
+            ## Check whether kindle item or not
+            try:
+                product_lxml.get_element_by_id("ebooksProductTitle")
+            except KeyError as e1:
+                try:
+                    product_lxml.get_element_by_id("productTitle")
+                except KeyError as e2:
+                    raise Exception("unable to find productTitle nor ebooksProductTitle") from e2
+                raise Exception("productTitle found, but unable to find ebooksProductTitle: probably this is not kindle item") from e1
 
             price_td_ary = product_lxml.cssselect('tr.kindle-price > td.a-color-price')
             # price_td_ary = product_lxml.cssselect('.swatchElement.selected .a-color-price')
             if len(price_td_ary) == 0:
-                raise Exception("could not found price")
+                raise Exception("unable to found price")
             elif len(price_td_ary) > 1:
-                raise Exception("found multiple %s price elements" % len(price_td_ary))
+                raise Exception("multiple %s price elements found" % len(price_td_ary))
 
             price_td = price_td_ary[0]
             price_innerhtml = price_td.text_content()
