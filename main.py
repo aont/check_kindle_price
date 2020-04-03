@@ -138,8 +138,8 @@ def get_wish_list_page(sess, list_id, last_evaluated_key_ref):
             continue
 
 
-price_pattern = re.compile('(?:￥|\\|&#65509;)\\s*([0-9,]+)')
-point_pattern = re.compile('([0-9,]+)(pt|point|ポイント|&#12509;&#12452;&#12531;&#12488;)')
+price_pattern = re.compile('(?:￥|\\\\)\\s*([0-9,]+)')
+point_pattern = re.compile('([0-9,]+)(?:pt|point|ポイント)')
 def check_amazon(sess, dp):
     sys.stderr.write('[info] check_amazon dp=%s\n' % dp)
     product_uri = urllib.parse.urljoin(AMAZON_DP, dp)
