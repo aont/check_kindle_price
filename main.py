@@ -27,12 +27,12 @@ import sendgrid.helpers
 
 def send_mail(message_str, subject, attach_html=None):
     sys.stderr.write("[info] mailing via sendgrid\n")
-    sg_username = os.environ["SENDGRID_USERNAME"]
+    sg_from = os.environ["SENDGRID_FROM"]
     sg_recipient = os.environ["SENDGRID_RECIPIENT"]
-    sg_apikey = os.environ["SENDGRID_APIKEY"]
+    sg_apikey = os.environ["SENDGRID_API_KEY"]
     sg_client = sendgrid.SendGridAPIClient(sg_apikey)
 
-    sg_from = sendgrid.Email(name="Check Kindle Price", email=sg_username)
+    sg_from = sendgrid.Email(name="Check Kindle Price", email=sg_from)
     message = sendgrid.Mail(from_email=sg_from, to_emails=[sg_recipient], subject=subject, html_content=message_str)
     message.reply_to = sg_recipient
     if attach_html:
