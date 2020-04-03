@@ -185,8 +185,7 @@ def check_amazon(sess, dp):
                 if point_match_obj:
                     point_num = int(point_match_obj.group(1).replace(',',''))
                 else:
-                    raise Exception("point text error %s" % repr(price_innerhtml))
-
+                    raise Exception("point text error %s" % repr(point_innerhtml))
 
             unlimited = (b'a-icon-kindle-unlimited' in result.content)
 
