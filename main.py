@@ -109,6 +109,7 @@ def get_wish_list_page(sess, list_id, last_evaluated_key_ref):
             dp_pattern = re.compile('/dp/(.*?)/')
             for li in li_ary:
                 data_itemid = li.get("data-itemid")
+
                 itemname_elem = li.get_element_by_id('itemName_%s' % data_itemid)
                 item_title = itemname_elem.get('title')
                 item_href = itemname_elem.get('href')
@@ -117,6 +118,12 @@ def get_wish_list_page(sess, list_id, last_evaluated_key_ref):
                     raise Exception("unexpected")
 
                 dp_id = dp_match.group(1)
+
+                item_byline = li.get_element_by_id('item-byline-%s' % data_itemid).text_content()
+                if "(Kindle版)" not in item_byline:
+                    sys.stderr.write("[warn] dp=%s: %s does not contain (Kindle版)\n" % (dp_id, repr(item_byline)))
+                    continue
+
                 yield (dp_id, item_title)
 
             break
