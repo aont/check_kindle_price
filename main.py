@@ -280,6 +280,7 @@ def main_update_list():
                 del kindle_price_data[dp]
         datetime_now = datetime.datetime.now()
         ckp_state["check_date"] = datetime_now.strftime(date_format)
+        del ckp_state["wish_list"]
 
     pg_update_json(pg_cur, generic_text_data_name, ckp_state_name, ckp_state)
     pg_update_json(pg_cur, generic_text_data_name, kindle_price_name, kindle_price_data)
