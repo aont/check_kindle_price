@@ -399,12 +399,18 @@ def main_check_price():
 
     return 0
 
+def main_test_sendgrid():
+    send_mail("test mail", "test title")
+    return 0
+
 if __name__ == '__main__':
     method = sys.argv[1]
     if method == "check_price":
         sys.exit(main_check_price())
     elif method == "update_list":
         sys.exit(main_update_list())
+    elif method == "test_sendgrid":
+        sys.exit(main_test_sendgrid())
     else:
         sys.stderr.write("[error] unknown method %s\n" % method)
         sys.exit(-1)
