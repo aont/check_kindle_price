@@ -76,6 +76,7 @@ def pg_update_json(pg_cur, table_name, kindle_price_key_name, pg_data):
     return pg_execute(pg_cur, 'update %s set value = %%s where key = %%s;' % table_name, [json.dumps(pg_data, ensure_ascii=False), kindle_price_key_name])
 
 
+dp_pattern = re.compile('/dp/(.*?)/')
 def get_wish_list_page(sess, list_id, last_evaluated_key_ref):
 
     last_evaluated_key = last_evaluated_key_ref[0]
@@ -106,7 +107,6 @@ def get_wish_list_page(sess, list_id, last_evaluated_key_ref):
             else:
                 raise Exception("len(lastEvaluatedKey_elems)=%s" % len_lastEvaluatedKey_elems)
 
-            dp_pattern = re.compile('/dp/(.*?)/')
             for li in li_ary:
                 data_itemid = li.get("data-itemid")
 
@@ -119,9 +119,9 @@ def get_wish_list_page(sess, list_id, last_evaluated_key_ref):
 
                 dp_id = dp_match.group(1)
 
-                item_byline = li.get_element_by_id('item-byline-%s' % data_itemid).text_content()
-                if "(Kindle版)" not in item_byline:
-                    sys.stderr.write("[warn] dp=%s: %s does not contain (Kindle版)\n" % (dp_id, repr(item_byline)))
+                item_byline = li.get_element_by_id('item-byline-%s' % data_itemid).text
+                if (item_byline is None) or ("(Kindle版)" not in item_byline):
+                    sys.stderr.write("[warn] dp=%s is not Kindle item\n" % (dp_id))
                     continue
 
                 yield (dp_id, item_title)
@@ -138,8 +138,8 @@ def get_wish_list_page(sess, list_id, last_evaluated_key_ref):
             continue
 
 
-price_pattern = re.compile('&#65509;\\s*([0-9,]+)')
-
+price_pattern = re.compile('(?:￥|\\|&#65509;)\\s*([0-9,]+)')
+point_pattern = re.compile('([0-9,]+)(pt|point|&#12509;&#12452;&#12531;&#12488;)')
 def check_amazon(sess, dp):
     sys.stderr.write('[info] check_amazon dp=%s\n' % dp)
     product_uri = urllib.parse.urljoin(AMAZON_DP, dp)
@@ -164,11 +164,13 @@ def check_amazon(sess, dp):
                 raise Exception("amazon html format error")
 
             price_td = price_td_ary[0]
-            price_innerhtml = lxml.etree.tostring(price_td).decode()
+            price_innerhtml = price_td.text_content()
 
             price_match_obj = price_pattern.search(price_innerhtml)
-            if price_match_obj is not None:
+            if price_match_obj:
                 price_num = int(price_match_obj.group(1).replace(',',''))
+            else:
+                raise Exception("price text error %s" % repr(price_innerhtml))
                 # print "%s yen" % price_num
 
             point_num = 0
@@ -177,12 +179,14 @@ def check_amazon(sess, dp):
                 raise Exception("unexpected")
             elif len(point_td_ary) == 1:
                 point_td = point_td_ary[0]
-                point_innerhtml = lxml.etree.tostring(point_td).decode()
+                point_innerhtml = point_td.text_content()
                 # sys.stderr.write("[debug]point_innerhtml=%s\n" % point_innerhtml)
-                point_pattern = re.compile('([0-9,]+)(pt|point|&#12509;&#12452;&#12531;&#12488;)')
                 point_match_obj = point_pattern.search(point_innerhtml)
-                if point_match_obj is not None:
+                if point_match_obj:
                     point_num = int(point_match_obj.group(1).replace(',',''))
+                else:
+                    raise Exception("point text error %s" % repr(price_innerhtml))
+
 
             unlimited = (b'a-icon-kindle-unlimited' in result.content)
 
