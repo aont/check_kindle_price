@@ -191,19 +191,19 @@ def check_amazon(sess, dp):
                 raise Exception("price text error %s" % repr(price_innerhtml))
 
 
-            # point_td_ary = product_lxml.cssselect('tr.loyalty-points > td.a-align-bottom')
-            # if len(point_td_ary) > 1:
-            #     raise Exception("%s point elements found" % len(point_td_ary))
-            # elif len(point_td_ary) == 0:
-            #     point_num = 0
-            # elif len(point_td_ary) == 1:
-            #     point_td = point_td_ary[0]
-            #     point_innerhtml = point_td.text_content()
-            #     point_match_obj = point_pattern.search(point_innerhtml)
-            #     if point_match_obj:
-            #         point_num = int(point_match_obj.group(1).replace(',',''))
-            #     else:
-            #         raise Exception("point text error %s" % repr(point_innerhtml))
+            point_td_ary = product_lxml.cssselect('tr.loyalty-points > td.a-align-bottom')
+            if len(point_td_ary) > 1:
+                raise Exception("%s point elements found" % len(point_td_ary))
+            elif len(point_td_ary) == 0:
+                point_num_1 = None
+            elif len(point_td_ary) == 1:
+                point_td = point_td_ary[0]
+                point_innerhtml = point_td.text_content()
+                point_match_obj = point_pattern.search(point_innerhtml)
+                if point_match_obj:
+                    point_num_1 = int(point_match_obj.group(1).replace(',',''))
+                else:
+                    raise Exception("point text error %s" % repr(point_innerhtml))
 
             swatch_elem_selected_ary = product_lxml.cssselect("li.swatchElement.selected")
             if len(swatch_elem_selected_ary)!=1:
@@ -212,9 +212,21 @@ def check_amazon(sess, dp):
             swatch_elem_selected_text = swatch_elem_selected.text_content()
             point_prefix_match = point_pattern_prefix.search(swatch_elem_selected_text)
             if point_prefix_match:
-                point_num = int(point_prefix_match.group(1).replace(',',''))
+                point_num_2 = int(point_prefix_match.group(1).replace(',',''))
             else:
-                point_num = 0
+                point_num_2 = None
+
+            point_num_or = point_num_1 or point_num_2
+            point_num_and = point_num_1 and point_num_2
+            if point_num_and:
+                if point_num_1 == point_num_2:
+                    point_num = point_num_1
+                else:
+                    raise Exception("point_num mismatch %s, %s" % (point_num_1, point_num_2))
+            elif point_num_or:
+                point_num = point_num_or
+            else:
+                raise Exception("point_num not detected")
 
             unlimited = (b'a-icon-kindle-unlimited' in result.content)
 
