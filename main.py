@@ -140,6 +140,7 @@ def get_wish_list_page(sess, list_id, last_evaluated_key_ref):
 
 price_pattern = re.compile('(?:￥|\\\\)\\s*([0-9,]+)')
 point_pattern = re.compile('([0-9,]+)(?:pt|point|ポイント)')
+point_pattern_prefix = re.compile('獲得ポイント: ([0-9,]+)(?:pt|point|ポイント)')
 def check_amazon(sess, dp):
     sys.stderr.write('[info] check_amazon dp=%s\n' % dp)
     product_uri = urllib.parse.urljoin(AMAZON_DP, dp)
@@ -189,19 +190,31 @@ def check_amazon(sess, dp):
             else:
                 raise Exception("price text error %s" % repr(price_innerhtml))
 
-            point_td_ary = product_lxml.cssselect('tr.loyalty-points > td.a-align-bottom')
-            if len(point_td_ary) > 1:
-                raise Exception("%s point elements found" % len(point_td_ary))
-            elif len(point_td_ary) == 0:
+
+            # point_td_ary = product_lxml.cssselect('tr.loyalty-points > td.a-align-bottom')
+            # if len(point_td_ary) > 1:
+            #     raise Exception("%s point elements found" % len(point_td_ary))
+            # elif len(point_td_ary) == 0:
+            #     point_num = 0
+            # elif len(point_td_ary) == 1:
+            #     point_td = point_td_ary[0]
+            #     point_innerhtml = point_td.text_content()
+            #     point_match_obj = point_pattern.search(point_innerhtml)
+            #     if point_match_obj:
+            #         point_num = int(point_match_obj.group(1).replace(',',''))
+            #     else:
+            #         raise Exception("point text error %s" % repr(point_innerhtml))
+
+            swatch_elem_selected_ary = product_lxml.cssselect("li.swatchElement.selected")
+            if len(swatch_elem_selected_ary)!=1:
+                raise Exception("number of swatch_elem_selected_ary is not 1")
+            swatch_elem_selected = swatch_elem_selected_ary[0]
+            swatch_elem_selected_text = swatch_elem_selected.text_content()
+            point_prefix_match = point_pattern_prefix.search(swatch_elem_selected_text)
+            if point_prefix_match:
+                point_num = int(point_prefix_match.group(1).replace(',',''))
+            else:
                 point_num = 0
-            elif len(point_td_ary) == 1:
-                point_td = point_td_ary[0]
-                point_innerhtml = point_td.text_content()
-                point_match_obj = point_pattern.search(point_innerhtml)
-                if point_match_obj:
-                    point_num = int(point_match_obj.group(1).replace(',',''))
-                else:
-                    raise Exception("point text error %s" % repr(point_innerhtml))
 
             unlimited = (b'a-icon-kindle-unlimited' in result.content)
 
