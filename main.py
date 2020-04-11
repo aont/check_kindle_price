@@ -146,9 +146,11 @@ def iter_match(pat, s):
         s = s[m.end():]
 
 def reduce_same(*args):
-    args_valid = filter(lambda x: x, args)
+    args_valid = filter(lambda x: x is not None, args)
     args_set = tuple(set(args_valid))
-    if 1!=len(args_set):
+    if len(args_set)==0:
+        return None
+    elif len(args_set)>1:
         raise Exception("multiple values: %s" % repr(args_set))
     else:
         return args_set[0]
@@ -243,7 +245,12 @@ def check_amazon(sess, dp):
                 point_num_2 = None
 
             point_num = reduce_same(point_num_1, point_num_2)
+            if point_num is None:
+                point_num = 0
+
             price_num = reduce_same(price_num_1, price_num_2)
+            if price_num is None:
+                raise Exception("unable to find price")
 
             unlimited = (b'a-icon-kindle-unlimited' in result.content)
 
