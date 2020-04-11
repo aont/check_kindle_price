@@ -166,12 +166,12 @@ def check_amazon(sess, dp):
 
             ## Check whether kindle item or not
             try:
-                poduct_subtitle_elem = product_lxml.get_element_by_id("productSubtitle")
+                title_elem = product_lxml.get_element_by_id("title")
             except KeyError as e:
-                raise Exception("productSubtitle not found") from e
-            poduct_subtitle = poduct_subtitle_elem.text_content()
-            if "Kindle版" not in poduct_subtitle:
-                raise Exception("poductSubtitle does not contain Kindle版: %s" % repr(poduct_subtitle) )
+                raise Exception("#title not found") from e
+            title_text = title_elem.text_content()
+            if "Kindle版" not in title_text:
+                raise Exception("#title does not contain Kindle版: %s" % repr(title_text) )
 
             price_td_ary = product_lxml.cssselect('tr.kindle-price > td.a-color-price')
             # price_td_ary = product_lxml.cssselect('.swatchElement.selected .a-color-price')
