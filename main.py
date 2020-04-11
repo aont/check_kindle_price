@@ -137,10 +137,28 @@ def get_wish_list_page(sess, list_id, last_evaluated_key_ref):
             sys.stderr.write("[info] retry\n")
             continue
 
+def iter_match(pat, s):
+    while True:
+        m = pat.search(s)
+        if not m:
+            break
+        yield m
+        s = s[m.end():]
+
+def reduce_same(*args):
+    args_valid = filter(lambda x: x, args)
+    args_set = tuple(set(args_valid))
+    if 1!=len(args_set):
+        raise Exception("multiple values: %s" % repr(args_set))
+    else:
+        return args_set[0]
 
 price_pattern = re.compile('(?:￥|\\\\)\\s*([0-9,]+)')
 point_pattern = re.compile('([0-9,]+)(?:pt|point|ポイント)')
 point_pattern_prefix = re.compile('獲得ポイント: ([0-9,]+)(?:pt|point|ポイント)')
+
+
+
 def check_amazon(sess, dp):
     sys.stderr.write('[info] check_amazon dp=%s\n' % dp)
     product_uri = urllib.parse.urljoin(AMAZON_DP, dp)
@@ -177,7 +195,7 @@ def check_amazon(sess, dp):
             price_td_ary = product_lxml.cssselect('tr.kindle-price > td.a-color-price')
             # price_td_ary = product_lxml.cssselect('.swatchElement.selected .a-color-price')
             if len(price_td_ary) == 0:
-                raise Exception("unable to found price")
+                price_num_1 = None
             elif len(price_td_ary) > 1:
                 raise Exception("multiple %s price elements found" % len(price_td_ary))
 
@@ -186,10 +204,9 @@ def check_amazon(sess, dp):
 
             price_match_obj = price_pattern.search(price_innerhtml)
             if price_match_obj:
-                price_num = int(price_match_obj.group(1).replace(',',''))
+                price_num_1 = int(price_match_obj.group(1).replace(',',''))
             else:
                 raise Exception("price text error %s" % repr(price_innerhtml))
-
 
             point_td_ary = product_lxml.cssselect('tr.loyalty-points > td.a-align-bottom')
             if len(point_td_ary) > 1:
@@ -210,23 +227,23 @@ def check_amazon(sess, dp):
                 raise Exception("number of swatch_elem_selected_ary is not 1")
             swatch_elem_selected = swatch_elem_selected_ary[0]
             swatch_elem_selected_text = swatch_elem_selected.text_content()
+
+            price_match_ary = tuple(iter_match(price_pattern, swatch_elem_selected_text))
+            if len(price_match_ary)==0:
+                price_num_2 = None
+            elif len(price_match_ary)>2:
+                raise Exception("found prices: %s " % ", ".join(tuple(price_match.group(1) for price_match in price_match_ary)) )
+            else:
+                price_num_2 = int(price_match_ary[-1].group(1).replace(",",""))
+
             point_prefix_match = point_pattern_prefix.search(swatch_elem_selected_text)
             if point_prefix_match:
                 point_num_2 = int(point_prefix_match.group(1).replace(',',''))
             else:
                 point_num_2 = None
 
-            point_num_or = point_num_1 or point_num_2
-            point_num_and = point_num_1 and point_num_2
-            if point_num_and:
-                if point_num_1 == point_num_2:
-                    point_num = point_num_1
-                else:
-                    raise Exception("point_num mismatch %s, %s" % (point_num_1, point_num_2))
-            elif point_num_or:
-                point_num = point_num_or
-            else:
-                raise Exception("point_num not detected")
+            point_num = reduce_same(point_num_1, point_num_2)
+            price_num = reduce_same(price_num_1, price_num_2)
 
             unlimited = (b'a-icon-kindle-unlimited' in result.content)
 
