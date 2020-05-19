@@ -177,7 +177,17 @@ def check_amazon(sess, dp):
             if b"Amazon CAPTCHA" in result.content:
                 raise Exception("captcha")
 
-            product_lxml = lxml.html.fromstring(result.content)
+            product_lxml = lxml.html.fromstring(result.content.decode())
+
+            if '警告：アダルトコンテンツ' == product_lxml.find(".//title").text:
+                sys.stderr.write("[info] blackcurtain\n")
+                for anchor in product_lxml.iterfind(".//a"):
+                    if anchor.text == "［はい］":
+                        product_uri = anchor.get("href")
+                        break
+                else:
+                    raise Exception("unable to find yes link")
+                continue
 
             ## sanity check
             try:
@@ -451,6 +461,13 @@ def main_test_sendgrid():
     send_mail("test mail", "test title")
     return 0
 
+def main_test_check_price():
+    amazon_sess = requests.session()
+    dp = os.environ['TEST_DP']
+    new_state = check_amazon(amazon_sess, dp)
+    sys.stderr.write("[debug] %s\n" % repr(new_state))
+    return 0
+
 if __name__ == '__main__':
     method = sys.argv[1]
     if method == "check_price":
@@ -459,6 +476,8 @@ if __name__ == '__main__':
         sys.exit(main_update_list())
     elif method == "test_sendgrid":
         sys.exit(main_test_sendgrid())
+    elif method == "test_check_price":
+        sys.exit(main_test_check_price())
     else:
         sys.stderr.write("[error] unknown method %s\n" % method)
         sys.exit(-1)
