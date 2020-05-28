@@ -241,12 +241,21 @@ def check_amazon(sess, dp):
             swatch_elem_selected_text = swatch_elem_selected.text_content()
 
             price_match_ary = tuple(iter_match(price_pattern, swatch_elem_selected_text))
-            if len(price_match_ary)==0:
+            price_set = set(int(price_match.group(1).replace(",","")) for price_match in price_match_ary)
+            if len(price_set)==0:
                 price_num_2 = None
-            elif len(price_match_ary)>2:
-                raise Exception("found prices: %s " % ", ".join(tuple(price_match.group(1) for price_match in price_match_ary)) )
+            elif len(price_set)==1:
+                price_num_2 = tuple(price_set)[0]
+            elif len(price_set)==2:
+                price_num_2 = None
+                for price in price_set:
+                    if price != 0:
+                        price_num_2 = price
+                        break
+                else:
+                    raise Exception("found prices: %s " % ", ".join(tuple(price_set)) )
             else:
-                price_num_2 = int(price_match_ary[-1].group(1).replace(",",""))
+                raise Exception("found prices: %s " % ", ".join(tuple(price_set)) )
 
             point_prefix_match = point_pattern_prefix.search(swatch_elem_selected_text)
             if point_prefix_match:
