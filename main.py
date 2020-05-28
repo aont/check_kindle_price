@@ -177,6 +177,8 @@ def check_amazon(sess, dp):
             if b"Amazon CAPTCHA" in result.content:
                 raise Exception("captcha")
 
+            # with open("%s.html"%dp, "wb") as f:
+            #     f.write(result.content)
             product_lxml = lxml.html.fromstring(result.content.decode())
 
             if '警告：アダルトコンテンツ' == product_lxml.find(".//title").text:
@@ -204,11 +206,12 @@ def check_amazon(sess, dp):
             if "Kindle版" not in title_text:
                 raise Exception("#title does not contain Kindle版: %s" % repr(title_text) )
 
+            # you_pay_section = product_lxml.get_element_by_id('youPaySection')
+            # price_num_0 = int(float(you_pay_section.get("data-kindle-price")))
+
             price_td_ary = product_lxml.cssselect('tr.kindle-price > td.a-color-price')
             # price_td_ary = product_lxml.cssselect('.swatchElement.selected .a-color-price')
-            if len(price_td_ary) == 0:
-                price_num_1 = None
-            elif len(price_td_ary) > 1:
+            if len(price_td_ary) != 1:
                 raise Exception("multiple %s price elements found" % len(price_td_ary))
 
             price_td = price_td_ary[0]
@@ -263,11 +266,20 @@ def check_amazon(sess, dp):
             else:
                 point_num_2 = None
 
+            # buy_one_click = product_lxml.get_element_by_id('buyOneClick')
+            # for input_elem in buy_one_click.iter():
+            #     if input_elem.get("name") == "displayedPrice":
+            #         price_num_3 = int(float(input_elem.get("value")))
+            #         break
+            # else:
+            #     raise Exception("unable to find #buyOneClick -> displayedPrice")
+            price_num_3 = int(float(product_lxml.find('.//*[@id=\'buyOneClick\']/*[@name=\'displayedPrice\']').get("value")))
+
             point_num = reduce_same(point_num_1, point_num_2)
             if point_num is None:
                 point_num = 0
 
-            price_num = reduce_same(price_num_1, price_num_2)
+            price_num = reduce_same(price_num_1, price_num_2, price_num_3)
             if price_num is None:
                 raise Exception("unable to find price")
 
