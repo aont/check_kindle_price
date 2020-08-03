@@ -309,14 +309,17 @@ if __name__ == '__main__':
     AMAZON_CO_JP='https://www.amazon.co.jp/'
     AMAZON_LIST=urllib.parse.urljoin(AMAZON_CO_JP, '/hz/wishlist/ls/')
     AMAZON_DP= urllib.parse.urljoin(AMAZON_CO_JP, '/dp/')
+    
     amazon_headers = {
         'authority': 'www.amazon.co.jp',
         'upgrade-insecure-requests': '1',
-        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36',
         'dnt': '1',
         'accept-language': 'ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7',
     }
-
+    user_agent = os.environ.get("USER_AGENT")
+    if user_agent:
+        amazon_headers["user-agent"] = user_agent
+    
     amazon_cookie = os.environ.get("AMAZON_COOKIE")
     if amazon_cookie:
         amazon_headers["cookie"] = amazon_cookie
