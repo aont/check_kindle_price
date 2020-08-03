@@ -81,8 +81,9 @@ def get_wish_list_page(sess, list_id, last_evaluated_key_ref):
 
     last_evaluated_key = last_evaluated_key_ref[0]
     url = urllib.parse.urljoin(AMAZON_LIST, list_id)
+    url += "?ajax=true"
     if last_evaluated_key:
-        url += "?lek=" + last_evaluated_key
+        url += "&lek=" + last_evaluated_key
 
     try_num = 0
     while True:
@@ -95,7 +96,8 @@ def get_wish_list_page(sess, list_id, last_evaluated_key_ref):
             if b"Amazon CAPTCHA" in result.content:
                 raise Exception("captcha")
 
-            product_lxml = lxml.html.fromstring(result.content)
+            product_lxml = lxml.html.fromstring(result.content.decode("utf-8"))
+
             g_items = product_lxml.get_element_by_id('g-items')
             # may raise Exception
             li_ary = g_items.cssselect('li')
@@ -121,7 +123,7 @@ def get_wish_list_page(sess, list_id, last_evaluated_key_ref):
 
                 item_byline = li.get_element_by_id('item-byline-%s' % data_itemid).text
                 if (item_byline is None) or ("(Kindle版)" not in item_byline):
-                    sys.stderr.write("[warn] dp=%s is not Kindle item\n" % (dp_id))
+                    sys.stderr.write("[warn] dp=%s is not Kindle item: %s\n" % (dp_id, item_byline))
                     continue
 
                 yield (dp_id, item_title)
