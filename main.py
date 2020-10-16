@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 import io
@@ -96,7 +96,11 @@ def get_wish_list_page(sess, list_id, last_evaluated_key_ref):
             if b"Amazon CAPTCHA" in result.content:
                 raise Exception("captcha")
 
-            product_lxml = lxml.html.fromstring(result.content.decode("utf-8"))
+            try:
+                lxml_input = result.content.decode("utf-8")
+            except UnicodeDecodeError:
+                lxml_input = result.content
+            product_lxml = lxml.html.fromstring(lxml_input)
 
             g_items = product_lxml.get_element_by_id('g-items')
             # may raise Exception
@@ -181,6 +185,10 @@ def check_amazon(sess, dp):
 
             # with open("%s.html"%dp, "wb") as f:
             #     f.write(result.content)
+            try:
+                lxml_input = result.content.decode("utf-8")
+            except UnicodeDecodeError:
+                lxml_input = result.content
             product_lxml = lxml.html.fromstring(result.content.decode())
 
             if '警告：アダルトコンテンツ' == product_lxml.find(".//title").text:
