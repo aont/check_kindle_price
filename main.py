@@ -189,7 +189,7 @@ def check_amazon(sess, dp):
                 lxml_input = result.content.decode("utf-8")
             except UnicodeDecodeError:
                 lxml_input = result.content
-            product_lxml = lxml.html.fromstring(result.content.decode())
+            product_lxml = lxml.html.fromstring(lxml_input)
 
             if '警告：アダルトコンテンツ' == product_lxml.find(".//title").text:
                 sys.stderr.write("[info] blackcurtain\n")
@@ -448,7 +448,14 @@ def main_check_price():
                 prev_net_price = -1
                 prev_unlimited = False
 
-            new_state = check_amazon(amazon_sess, dp)
+            try:
+                new_state = check_amazon(amazon_sess, dp)
+            except KeyboardInterrupt as e:
+                sys.stderr.write(traceback.format_exc())
+            except Exception as e:
+
+                raise e
+
             new_net_price = new_state[0] - new_state[1]
             unlimited = new_state[2]
             sys.stderr.write('[info] price=%s point=%s net_price=%s unlimited=%s\n' % (new_state[0], new_state[1], new_net_price, unlimited))
