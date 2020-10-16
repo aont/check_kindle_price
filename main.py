@@ -448,13 +448,7 @@ def main_check_price():
                 prev_net_price = -1
                 prev_unlimited = False
 
-            try:
-                new_state = check_amazon(amazon_sess, dp)
-            except KeyboardInterrupt as e:
-                sys.stderr.write(traceback.format_exc())
-            except Exception as e:
-
-                raise e
+            new_state = check_amazon(amazon_sess, dp)
 
             new_net_price = new_state[0] - new_state[1]
             unlimited = new_state[2]
