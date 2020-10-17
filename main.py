@@ -15,6 +15,7 @@ import inspect
 import urllib.parse
 import signal
 import itertools
+import collections
 
 import requests
 import psycopg2
@@ -88,6 +89,7 @@ def get_wish_list_page(sess, list_id, last_evaluated_key_ref):
     try_num = 0
     while True:
         try:
+            rotate_cookie()
             result = sess.get(url, headers = amazon_headers)
             time.sleep(sleep_duration)
             amazon_headers["referer"] = url
@@ -183,6 +185,7 @@ def check_amazon(sess, dp):
     try_num = 0
     while True:
         try:
+            rotate_cookie()
             result = sess.get(product_uri, headers = amazon_headers)
             time.sleep(sleep_duration)
             amazon_headers["referer"] = product_uri
@@ -324,6 +327,11 @@ def check_amazon(sess, dp):
             sys.stderr.write("[info] retry\n")
             continue
 
+def rotate_cookie():
+    amazon_cookies.rotate()
+    amazon_headers["cookie"] = amazon_cookies[0]
+
+
 #### ---- main ----
 
 if __name__ == '__main__':
@@ -345,9 +353,20 @@ if __name__ == '__main__':
     if user_agent:
         amazon_headers["user-agent"] = user_agent
     
-    amazon_cookie = os.environ.get("AMAZON_COOKIE")
-    if amazon_cookie:
-        amazon_headers["cookie"] = amazon_cookie
+    # amazon_cookie = os.environ.get("AMAZON_COOKIE")
+    # if amazon_cookie:
+    #     amazon_headers["cookie"] = amazon_cookie
+
+    amazon_cookies = collections.deque()
+    i = 0
+    while True:
+        amazon_cookie_i = os.environ.get("AMAZON_COOKIE%s" % i)
+        if amazon_cookie_i is None:
+            sys.stderr.write("[info] #amazon_cookies = %s\n" % i)
+            break
+        amazon_cookies.append(amazon_cookie_i)
+        i += 1
+    amazon_headers["cookie"] = amazon_cookies[0]
 
     list_id = os.environ['AMAZON_WISH_LIST_ID']
     pg_url = os.environ['DATABASE_URL']
