@@ -271,8 +271,9 @@ def check_amazon(sess, dp):
             if len(swatch_elem_selected_ary)!=1:
                 raise Exception("number of swatch_elem_selected_ary is not 1")
             swatch_elem_selected = swatch_elem_selected_ary[0]
-            swatch_elem_selected_text = swatch_elem_selected.text_content()
-            unlimited1 = "Kindle Unlimitedのロゴ" in swatch_elem_selected_text
+            swatch_elem_selected_text = lxml.etree.tostring(swatch_elem_selected, pretty_print=False, encoding="unicode") #.decode("UTF-8")
+            unlimited1 = "Kindle Unlimited" in swatch_elem_selected_text
+            # sys.stderr.write("[info] swatch_elem_selected_text=%s\n" % swatch_elem_selected_text)
 
             price_match_ary = tuple(iter_match(price_pattern, swatch_elem_selected_text))
             price_set = set(int(price_match.group(1).replace(",","")) for price_match in price_match_ary)
@@ -298,7 +299,10 @@ def check_amazon(sess, dp):
                 point_num_2 = None
 
             buy_one_click = product_lxml.get_element_by_id('buyOneClick')
-            unlimited3 = "Kindle Unlimitedのロゴ" in buy_one_click.text_content()
+            buy_one_click_text = lxml.etree.tostring(buy_one_click, pretty_print=False, encoding="unicode") #.decode()
+            unlimited3 = "読み放題で読む" in buy_one_click_text
+            # sys.stderr.write("[info] buy_one_click.text_content()=%s\n" % buy_one_click_text)
+
             # buy_one_click = product_lxml.get_element_by_id('buyOneClick')
             # for input_elem in buy_one_click.iter():
             #     if input_elem.get("name") == "displayedPrice":
