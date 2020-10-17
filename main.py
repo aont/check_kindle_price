@@ -272,6 +272,7 @@ def check_amazon(sess, dp):
                 raise Exception("number of swatch_elem_selected_ary is not 1")
             swatch_elem_selected = swatch_elem_selected_ary[0]
             swatch_elem_selected_text = swatch_elem_selected.text_content()
+            unlimited1 = "Kindle Unlimitedのロゴ" in swatch_elem_selected_text
 
             price_match_ary = tuple(iter_match(price_pattern, swatch_elem_selected_text))
             price_set = set(int(price_match.group(1).replace(",","")) for price_match in price_match_ary)
@@ -296,6 +297,8 @@ def check_amazon(sess, dp):
             else:
                 point_num_2 = None
 
+            buy_one_click = product_lxml.get_element_by_id('buyOneClick')
+            unlimited3 = "Kindle Unlimitedのロゴ" in buy_one_click.text_content()
             # buy_one_click = product_lxml.get_element_by_id('buyOneClick')
             # for input_elem in buy_one_click.iter():
             #     if input_elem.get("name") == "displayedPrice":
@@ -313,7 +316,8 @@ def check_amazon(sess, dp):
             if price_num is None:
                 raise Exception("unable to find price")
 
-            unlimited = (b'a-icon-kindle-unlimited' in result.content)
+            unlimited = unlimited1 or unlimited3
+            # unlimited = (b'Kindle Unlimitedのロゴ' in result.content)
 
             return (price_num, point_num, unlimited)
             # break
