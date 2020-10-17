@@ -102,6 +102,15 @@ def get_wish_list_page(sess, list_id, last_evaluated_key_ref):
                 lxml_input = result.content
             product_lxml = lxml.html.fromstring(lxml_input)
 
+            
+            page_title_elem = product_lxml.find(".//title")
+            page_title = None
+            if page_title_elem is not None:
+                page_title = page_title_elem.text
+                sys.stderr.write("[info] page_title=%s\n" % page_title)
+            else:
+                sys.stderr.write("[info] no page_title\n")
+
             g_items = product_lxml.get_element_by_id('g-items')
             # may raise Exception
             li_ary = g_items.cssselect('li')
@@ -191,7 +200,15 @@ def check_amazon(sess, dp):
                 lxml_input = result.content
             product_lxml = lxml.html.fromstring(lxml_input)
 
-            if '警告：アダルトコンテンツ' == product_lxml.find(".//title").text:
+            page_title_elem = product_lxml.find(".//title")
+            page_title = None
+            if page_title_elem is not None:
+                page_title = page_title_elem.text
+                sys.stderr.write("[info] page_title=%s\n" % page_title)
+            else:
+                sys.stderr.write("[info] no page_title\n")
+
+            if '警告：アダルトコンテンツ' == page_title:
                 sys.stderr.write("[info] blackcurtain\n")
                 for anchor in product_lxml.iterfind(".//a"):
                     if anchor.text == "［はい］":
@@ -311,7 +328,7 @@ def check_amazon(sess, dp):
 
 if __name__ == '__main__':
 
-    sleep_duration = 5
+    sleep_duration = int(os.environ.get('SLEEP_DUR', default="5"))
     max_try = int(os.environ.get('MAX_TRY', default="5"))
 
     AMAZON_CO_JP='https://www.amazon.co.jp/'
