@@ -16,6 +16,7 @@ import urllib.parse
 import signal
 import itertools
 import collections
+import random
 
 import requests
 import psycopg2
@@ -365,7 +366,7 @@ if __name__ == '__main__':
     # if amazon_cookie:
     #     amazon_headers["cookie"] = amazon_cookie
 
-    amazon_cookies = collections.deque()
+    amazon_cookies = list()
     i = 0
     while True:
         amazon_cookie_i = os.environ.get("AMAZON_COOKIE%s" % i)
@@ -374,6 +375,7 @@ if __name__ == '__main__':
             break
         amazon_cookies.append(amazon_cookie_i)
         i += 1
+    amazon_cookies = collections.deque(random.sample(amazon_cookies, len(amazon_cookies)))
     amazon_headers["cookie"] = amazon_cookies[0]
 
     list_id = os.environ['AMAZON_WISH_LIST_ID']
