@@ -79,7 +79,7 @@ def pg_update_json(pg_cur, table_name, kindle_price_key_name, pg_data):
 
 
 dp_pattern = re.compile('/dp/(.*?)/')
-def get_wish_list_page(sess, list_id, last_evaluated_key_ref):
+def get_wish_list_page(list_id, last_evaluated_key_ref):
 
     last_evaluated_key = last_evaluated_key_ref[0]
     url = urllib.parse.urljoin(AMAZON_LIST, list_id)
@@ -91,7 +91,7 @@ def get_wish_list_page(sess, list_id, last_evaluated_key_ref):
     while True:
         try:
             rotate_cookie()
-            result = sess.get(url, headers = amazon_headers)
+            result = requests.get(url, headers = amazon_headers)
             time.sleep(sleep_duration)
             amazon_headers["referer"] = url
             result.raise_for_status()
@@ -179,7 +179,7 @@ point_pattern_prefix = re.compile('獲得ポイント: ([0-9,]+)(?:pt|point|ポ�
 
 
 
-def check_amazon(sess, dp):
+def check_amazon(dp):
     sys.stderr.write('[info] check_amazon dp=%s\n' % dp)
     product_uri = urllib.parse.urljoin(AMAZON_DP, dp)
 
@@ -187,7 +187,7 @@ def check_amazon(sess, dp):
     while True:
         try:
             rotate_cookie()
-            result = sess.get(product_uri, headers = amazon_headers)
+            result = requests.get(product_uri, headers = amazon_headers)
             time.sleep(sleep_duration)
             amazon_headers["referer"] = product_uri
             result.raise_for_status()
@@ -394,7 +394,7 @@ if __name__ == '__main__':
 
 def main_update_list():
 
-    amazon_sess = requests.session()
+    # amazon_sess = requests.session()
     pg_conn = psycopg2.connect(pg_url)
     pg_cur = pg_conn.cursor()
     kindle_price_data = pg_init_json(pg_cur, 'generic_text_data', 'kindle_price')
@@ -410,7 +410,7 @@ def main_update_list():
     for nc in range(max_check):
         try:
             sys.stderr.write("[info] last_evaluated_key: %s\n" % last_evaluated_key)
-            for dp_id, item_title in get_wish_list_page(amazon_sess, list_id, last_evaluated_key_ref):
+            for dp_id, item_title in get_wish_list_page(list_id, last_evaluated_key_ref):
                 wish_list[dp_id] = item_title
                 if dp_id not in kindle_price_data:
                     kindle_price_data[dp_id] = {
@@ -460,7 +460,7 @@ def main_update_list():
 
 def main_check_price():
 
-    amazon_sess = requests.session()
+    # amazon_sess = requests.session()
     pg_conn = psycopg2.connect(pg_url)
     pg_cur = pg_conn.cursor()
     kindle_price_data = pg_init_json(pg_cur, generic_text_data_name, kindle_price_name)
@@ -494,7 +494,7 @@ def main_check_price():
                 prev_net_price = -1
                 prev_unlimited = False
 
-            new_state = check_amazon(amazon_sess, dp)
+            new_state = check_amazon(dp)
 
             new_net_price = new_state[0] - new_state[1]
             unlimited = new_state[2]
@@ -523,7 +523,7 @@ def main_check_price():
         else:
             sys.stderr.write(traceback.format_exc())
 
-    amazon_sess.close()
+    # amazon_sess.close()
 
     if len(messages)>0:
         send_mail("<br />\n".join(messages), "Update of Kindle Price")
@@ -543,9 +543,9 @@ def main_test_sendgrid():
     return 0
 
 def main_test_check_price():
-    amazon_sess = requests.session()
+    # amazon_sess = requests.session()
     dp = os.environ['TEST_DP']
-    new_state = check_amazon(amazon_sess, dp)
+    new_state = check_amazon(dp)
     sys.stderr.write("[debug] %s\n" % repr(new_state))
     return 0
 
