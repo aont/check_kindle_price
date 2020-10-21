@@ -145,8 +145,7 @@ def get_wish_list_page(list_id, last_evaluated_key_ref):
 
             break
 
-        except Exception as e:
-            # requests.exceptions.RequestException
+        except requests.exceptions.RequestException as e:
             try_num += 1
             if try_num == max_try:
                 raise e
@@ -177,6 +176,8 @@ point_pattern = re.compile('([0-9,]+)(?:pt|point|ポイント)')
 point_pattern_prefix = re.compile('獲得ポイント: ([0-9,]+)(?:pt|point|ポイント)')
 
 
+class AmazonNoTitleError(Exception):
+    pass
 
 def check_amazon(dp):
     sys.stderr.write('[info] check_amazon dp=%s\n' % dp)
@@ -221,17 +222,11 @@ def check_amazon(dp):
                     raise Exception("unable to find yes link")
                 continue
 
-            ## sanity check
-            try:
-                product_lxml.get_element_by_id("title")
-            except KeyError as e:
-                raise Exception("unable to find title") from e
-
             ## Check whether kindle item or not
             try:
                 title_elem = product_lxml.get_element_by_id("title")
             except KeyError as e:
-                raise Exception("#title not found") from e
+                raise AmazonNoTitle() from e
             title_text = title_elem.text_content()
             if "Kindle版" not in title_text:
                 raise Exception("#title does not contain Kindle版: %s" % repr(title_text) )
@@ -320,7 +315,8 @@ def check_amazon(dp):
 
             return (price_num, point_num, unlimited)
             # break
-        except Exception as e:
+
+        except (requests.exceptions.HTTPError, AmazonNoTitleError) as e:
             # requests.exceptions.RequestException
             tb = traceback.format_exc()
             try_num += 1
@@ -329,6 +325,7 @@ def check_amazon(dp):
             sys.stderr.write(tb)
             sys.stderr.write("[info] retry\n")
             continue
+
 
 def rotate_cookie():
     amazon_cookies.rotate()
