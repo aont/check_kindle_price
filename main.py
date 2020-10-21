@@ -23,7 +23,7 @@ import psycopg2
 import psycopg2.extras
 import requests
 import lxml.html
-# import cssselect
+import cssselect
 import sendgrid
 import sendgrid.helpers
 
