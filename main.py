@@ -105,11 +105,10 @@ def get_wish_list_page(list_id, last_evaluated_key_ref):
                 lxml_input = result.content
             product_lxml = lxml.html.fromstring(lxml_input)
 
-            page_title_elems = tuple(filter(lambda x: str(x.tag).lower()=="title", product_lxml.iter()))
-            # product_lxml.find(".//title")
+            page_title_elem = product_lxml.find(".//title")
             page_title = None
-            if len(page_title_elems) == 1:
-                page_title = page_title_elems[0].text
+            if page_title_elem is not None:
+                page_title = page_title_elem.text
                 sys.stderr.write("[info] page_title=%s\n" % page_title)
             else:
                 sys.stderr.write("[info] no page_title\n")
@@ -204,19 +203,17 @@ def check_amazon(dp):
                 lxml_input = result.content
             product_lxml = lxml.html.fromstring(lxml_input)
 
-            page_title_elems = tuple(filter(lambda x: str(x.tag).lower()=="title", product_lxml.iter()))
-            # product_lxml.find(".//title")
+            page_title_elem = product_lxml.find(".//title")
             page_title = None
-            if len(page_title_elems) == 1:
-                page_title = page_title_elems[0].text
+            if page_title_elem is not None:
+                page_title = page_title_elem.text
                 sys.stderr.write("[info] page_title=%s\n" % page_title)
             else:
                 sys.stderr.write("[info] no page_title\n")
 
             if '警告：アダルトコンテンツ' == page_title:
                 sys.stderr.write("[info] blackcurtain\n")
-                for anchor in filter(lambda x: str(x.tag).lower()=="a", product_lxml.iter()):
-                    #product_lxml.iterfind(".//a"):
+                for anchor in product_lxml.iterfind(".//a"):
                     if anchor.text == "［はい］":
                         product_uri = anchor.get("href")
                         break
@@ -306,9 +303,9 @@ def check_amazon(dp):
             unlimited3 = "読み放題で読む" in buy_one_click_text
             # sys.stderr.write("[info] buy_one_click.text_content()=%s\n" % buy_one_click_text)
 
-            price_num_3 = int(float(tuple(filter(lambda x: x.get("name")=="displayedPrice", buy_one_click.iter()))[0].get("value")))
+            # price_num_3 = int(float(tuple(filter(lambda x: x.get("name")=="displayedPrice", buy_one_click.iter()))[0].get("value")))
             # price_num_3 = int(float(product_lxml.find('.//*[@id=\'buyOneClick\']/*[@name=\'displayedPrice\']').get("value")))
-            # price_num_3 = int(float(buy_one_click.find('./*[@name=\'displayedPrice\']').get("value")))
+            price_num_3 = int(float(buy_one_click.find('./*[@name=\'displayedPrice\']').get("value")))
 
             point_num = reduce_same(point_num_1, point_num_2)
             if point_num is None:
