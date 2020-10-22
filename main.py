@@ -226,7 +226,7 @@ def check_amazon(dp):
             try:
                 title_elem = product_lxml.get_element_by_id("title")
             except KeyError as e:
-                raise AmazonNoTitle() from e
+                raise AmazonNoTitleError() from e
             title_text = title_elem.text_content()
             if "Kindle版" not in title_text:
                 raise Exception("#title does not contain Kindle版: %s" % repr(title_text) )
