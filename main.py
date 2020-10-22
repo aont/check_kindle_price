@@ -329,7 +329,8 @@ def check_amazon(dp):
 
 def rotate_cookie():
     amazon_cookies.rotate()
-    amazon_headers["cookie"] = amazon_cookies[0]
+    sys.stderr.write("[info] use AMAZON_COOKIE%s\n" % amazon_cookies[0][0])
+    amazon_headers["cookie"] = amazon_cookies[0][1]
 
 
 #### ---- main ----
@@ -364,10 +365,10 @@ if __name__ == '__main__':
         if amazon_cookie_i is None:
             sys.stderr.write("[info] #amazon_cookies = %s\n" % i)
             break
-        amazon_cookies.append(amazon_cookie_i)
+        amazon_cookies.append((i, amazon_cookie_i))
         i += 1
     amazon_cookies = collections.deque(random.sample(amazon_cookies, len(amazon_cookies)))
-    amazon_headers["cookie"] = amazon_cookies[0]
+    # amazon_headers["cookie"] = amazon_cookies[0][1]
 
     list_id = os.environ['AMAZON_WISH_LIST_ID']
     pg_url = os.environ['DATABASE_URL']
