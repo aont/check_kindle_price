@@ -87,10 +87,11 @@ def get_wish_list_page(list_id, last_evaluated_key_ref):
     if last_evaluated_key:
         url += "&lek=" + last_evaluated_key
 
+    rotate_cookie()
+
     try_num = 0
     while True:
         try:
-            rotate_cookie()
             result = requests.get(url, headers = amazon_headers)
             time.sleep(sleep_duration)
             amazon_headers["referer"] = url
@@ -182,11 +183,11 @@ class AmazonNoTitleError(Exception):
 def check_amazon(dp):
     sys.stderr.write('[info] check_amazon dp=%s\n' % dp)
     product_uri = urllib.parse.urljoin(AMAZON_DP, dp)
+    rotate_cookie()
 
     try_num = 0
     while True:
         try:
-            rotate_cookie()
             result = requests.get(product_uri, headers = amazon_headers)
             time.sleep(sleep_duration)
             amazon_headers["referer"] = product_uri
